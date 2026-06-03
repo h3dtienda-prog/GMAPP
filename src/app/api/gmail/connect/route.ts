@@ -24,6 +24,7 @@ export function GET(request: NextRequest) {
   response.cookies.set("gmail_oauth_state", state, {
     httpOnly: true,
     maxAge: 10 * 60,
+    path: "/",
     sameSite: "lax",
     secure: origin.startsWith("https://"),
   });
