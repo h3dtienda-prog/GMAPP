@@ -1,18 +1,12 @@
-import { randomBytes } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { buildGoogleAuthUrl } from "@/lib/gmail";
+import { createOAuthState } from "@/lib/oauth-state";
 
 export const runtime = "nodejs";
 
 export function GET(request: NextRequest) {
   const origin = request.nextUrl.origin;
-  const state = randomBytes(32).toString("base64url");
-  const previousStates =
-    request.cookies
-      .get("gmail_oauth_state")
-      ?.value.split(".")
-      .filter(Boolean) ?? [];
-  const validStates = [...previousStates.slice(-4), state].join(".");
+  const state = createOAuthState();
   const auth = buildGoogleAuthUrl(state, origin);
 
   if (!auth.configured) {
@@ -26,14 +20,5 @@ export function GET(request: NextRequest) {
     );
   }
 
-  const response = NextResponse.redirect(auth.url);
-  response.cookies.set("gmail_oauth_state", validStates, {
-    httpOnly: true,
-    maxAge: 10 * 60,
-    path: "/",
-    sameSite: "lax",
-    secure: origin.startsWith("https://"),
-  });
-
-  return response;
+  return NextResponse.redirect(auth.url);
 }

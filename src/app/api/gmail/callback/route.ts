@@ -4,6 +4,7 @@ import {
   getGmailProfile,
   storeEncryptedGmailConnection,
 } from "@/lib/gmail";
+import { verifyOAuthState } from "@/lib/oauth-state";
 
 export const runtime = "nodejs";
 
@@ -12,17 +13,12 @@ export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get("code");
   const error = request.nextUrl.searchParams.get("error");
   const state = request.nextUrl.searchParams.get("state");
-  const validStates =
-    request.cookies
-      .get("gmail_oauth_state")
-      ?.value.split(".")
-      .filter(Boolean) ?? [];
 
   if (error) {
     return redirectWithStatus(origin, `/?gmail=error&reason=${error}`);
   }
 
-  if (!code || !state || !validStates.includes(state)) {
+  if (!code || !verifyOAuthState(state)) {
     return redirectWithStatus(origin, "/?gmail=invalid-state");
   }
 
@@ -31,13 +27,10 @@ export async function GET(request: NextRequest) {
     const profile = await getGmailProfile(tokens.access_token);
     await storeEncryptedGmailConnection(profile, tokens);
 
-    const response = redirectWithStatus(
+    return redirectWithStatus(
       origin,
       `/?gmail=connected&email=${encodeURIComponent(profile.emailAddress)}`,
     );
-    response.cookies.delete("gmail_oauth_state");
-
-    return response;
   } catch (error) {
     console.error(error);
 
