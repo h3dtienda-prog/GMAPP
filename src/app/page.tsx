@@ -3,6 +3,7 @@ import {
   Bell,
   Clock3,
   Filter,
+  Home as HomeIcon,
   Inbox,
   MailPlus,
   MailWarning,
@@ -24,8 +25,10 @@ export const dynamic = "force-dynamic";
 
 type HomeProps = {
   searchParams: Promise<{
+    account?: string;
     email?: string;
     gmail?: string;
+    message?: string;
     reason?: string;
     vars?: string;
   }>;
@@ -33,11 +36,7 @@ type HomeProps = {
 
 function getGmailStatus(searchParams: Awaited<HomeProps["searchParams"]>) {
   if (searchParams.gmail === "connected") {
-    return {
-      tone: "success",
-      title: "Gmail conectado",
-      text: `${searchParams.email ?? "La cuenta"} ya autorizo la app. Los tokens quedaron guardados cifrados.`,
-    };
+    return null;
   }
 
   if (searchParams.gmail === "missing-config") {
@@ -70,14 +69,29 @@ function getGmailStatus(searchParams: Awaited<HomeProps["searchParams"]>) {
 export default async function Home({ searchParams }: HomeProps) {
   const params = await searchParams;
   const gmailStatus = getGmailStatus(params);
-  const { accounts, messages, error } = await getGmailDashboardData();
-  const selectedMessage = messages[0] ?? null;
+  const selectedAccount = params.account;
+  const { accounts, messages, error } = await getGmailDashboardData(
+    selectedAccount,
+  );
+  const selectedMessage =
+    messages.find((message) => message.id === params.message) ??
+    messages[0] ??
+    null;
   const unreadCount = messages.filter((message) => message.unread).length;
   const importantCount = messages.filter(
     (message) => message.tag === "Importante",
   ).length;
   const folders = [
-    { name: "Bandeja unificada", count: messages.length, icon: Inbox, active: true },
+    { name: "Home", count: 0, icon: HomeIcon, href: "/", active: !selectedAccount },
+    {
+      name: "Bandeja unificada",
+      count: messages.length,
+      icon: Inbox,
+      href: selectedAccount
+        ? `/?account=${encodeURIComponent(selectedAccount)}`
+        : "/",
+      active: true,
+    },
     { name: "No leidos", count: unreadCount, icon: Reply },
     { name: "Seguimientos", count: 0, icon: Clock3 },
     { name: "Importantes", count: importantCount, icon: Star },
@@ -85,7 +99,11 @@ export default async function Home({ searchParams }: HomeProps) {
     { name: "Archivados", count: 0, icon: Archive },
   ];
   const metrics = [
-    { label: "Correos recientes", value: String(messages.length), detail: "Inbox Gmail" },
+    {
+      label: "Correos recientes",
+      value: String(messages.length),
+      detail: selectedAccount ? "cuenta seleccionada" : "Inbox Gmail",
+    },
     { label: "Sin leer", value: String(unreadCount), detail: "segun Gmail" },
     { label: "Importantes", value: String(importantCount), detail: "marcados en Gmail" },
     { label: "Cuentas", value: String(accounts.length), detail: "conectadas" },
@@ -127,7 +145,7 @@ export default async function Home({ searchParams }: HomeProps) {
               return (
                 <a
                   key={folder.name}
-                  href="#"
+                  href={folder.href ?? "#"}
                   className={`flex h-10 items-center justify-between rounded-md px-3 text-sm ${
                     folder.active
                       ? "bg-[#e8f0fe] font-semibold text-[#174ea6]"
@@ -162,6 +180,7 @@ export default async function Home({ searchParams }: HomeProps) {
                 .map((account) => `${account.address}:${account.sortOrder}`)
                 .join("|")}
               accounts={accounts}
+              selectedAccount={selectedAccount}
             />
           </section>
         </aside>
@@ -194,7 +213,7 @@ export default async function Home({ searchParams }: HomeProps) {
                   Bandeja unificada
                 </p>
                 <h2 className="text-2xl font-semibold">
-                  Gmail conectado en tiempo real
+                  {selectedAccount ?? "Gmail conectado en tiempo real"}
                 </h2>
               </div>
               <div className="flex flex-col gap-2 sm:flex-row">
@@ -250,8 +269,12 @@ export default async function Home({ searchParams }: HomeProps) {
               <div className="divide-y divide-[#d8d2c6]">
                 {messages.length > 0 ? (
                   messages.map((message) => (
-                    <article
+                    <a
                       key={message.id}
+                      href={`/?${new URLSearchParams({
+                        ...(selectedAccount ? { account: selectedAccount } : {}),
+                        message: message.id,
+                      }).toString()}`}
                       className={`cursor-pointer bg-white px-5 py-4 transition hover:bg-[#fffaf1] ${
                         message.unread ? "border-l-4 border-l-[#1a73e8]" : ""
                       }`}
@@ -292,7 +315,7 @@ export default async function Home({ searchParams }: HomeProps) {
                           </span>
                         ) : null}
                       </div>
-                    </article>
+                    </a>
                   ))
                 ) : (
                   <div className="bg-white px-5 py-10 text-sm text-[#5f6368]">
@@ -315,22 +338,69 @@ export default async function Home({ searchParams }: HomeProps) {
                       </h2>
                     </div>
                     <div className="flex gap-2">
-                      <button
-                        className="grid size-10 place-items-center rounded-md border border-[#d8d2c6]"
-                        aria-label="Marcar importante"
+                      <form action="/api/messages/action" method="post">
+                        <input
+                          type="hidden"
+                          name="account"
+                          value={selectedMessage.account}
+                        />
+                        <input
+                          type="hidden"
+                          name="gmailId"
+                          value={selectedMessage.gmailId}
+                        />
+                        <input type="hidden" name="action" value="star" />
+                        <input
+                          type="hidden"
+                          name="redirectTo"
+                          value={
+                            selectedAccount
+                              ? `/?account=${encodeURIComponent(selectedAccount)}`
+                              : "/"
+                          }
+                        />
+                        <button
+                          className="grid size-10 place-items-center rounded-md border border-[#d8d2c6]"
+                          aria-label="Marcar importante"
+                        >
+                          <Star size={18} />
+                        </button>
+                      </form>
+                      <form action="/api/messages/action" method="post">
+                        <input
+                          type="hidden"
+                          name="account"
+                          value={selectedMessage.account}
+                        />
+                        <input
+                          type="hidden"
+                          name="gmailId"
+                          value={selectedMessage.gmailId}
+                        />
+                        <input type="hidden" name="action" value="archive" />
+                        <input
+                          type="hidden"
+                          name="redirectTo"
+                          value={
+                            selectedAccount
+                              ? `/?account=${encodeURIComponent(selectedAccount)}`
+                              : "/"
+                          }
+                        />
+                        <button
+                          className="grid size-10 place-items-center rounded-md border border-[#d8d2c6]"
+                          aria-label="Archivar"
+                        >
+                          <Archive size={18} />
+                        </button>
+                      </form>
+                      <a
+                        href={`mailto:${selectedMessage.fromEmail ?? ""}?subject=${encodeURIComponent(`Re: ${selectedMessage.subject}`)}`}
+                        className="flex h-10 items-center justify-center gap-2 rounded-md bg-[#1a73e8] px-4 text-sm font-semibold text-white"
                       >
-                        <Star size={18} />
-                      </button>
-                      <button
-                        className="grid size-10 place-items-center rounded-md border border-[#d8d2c6]"
-                        aria-label="Archivar"
-                      >
-                        <Archive size={18} />
-                      </button>
-                      <button className="flex h-10 items-center justify-center gap-2 rounded-md bg-[#1a73e8] px-4 text-sm font-semibold text-white">
                         <Reply size={17} />
                         Responder
-                      </button>
+                      </a>
                     </div>
                   </div>
 

@@ -11,6 +11,7 @@ import { getSupabaseAdminClient } from "@/lib/supabase-admin";
 export const gmailScopes = [
   "https://www.googleapis.com/auth/gmail.readonly",
   "https://www.googleapis.com/auth/gmail.send",
+  "https://www.googleapis.com/auth/gmail.modify",
 ];
 
 export type GmailTokenResponse = {
@@ -67,7 +68,9 @@ export type GmailDashboardAccount = {
 
 export type GmailDashboardMessage = {
   id: string;
+  gmailId: string;
   sender: string;
+  fromEmail?: string;
   account: string;
   subject: string;
   preview: string;
@@ -178,7 +181,7 @@ export async function getGmailProfile(accessToken: string) {
   return (await response.json()) as GmailProfile;
 }
 
-export async function getGmailDashboardData() {
+export async function getGmailDashboardData(selectedAccount?: string) {
   const supabase = getSupabaseAdminClient();
 
   if (!supabase) {
@@ -205,6 +208,9 @@ export async function getGmailDashboardData() {
         (second.sort_order ?? Number.MAX_SAFE_INTEGER) ||
       first.email_address.localeCompare(second.email_address),
   );
+  const visibleRows = selectedAccount
+    ? rows.filter((row) => row.email_address === selectedAccount)
+    : rows;
   const accounts: GmailDashboardAccount[] = rows.map((row, index) => ({
     address: row.email_address,
     provider: row.provider === "gmail" ? "Gmail" : row.provider,
@@ -216,7 +222,7 @@ export async function getGmailDashboardData() {
   }));
   const messages: GmailDashboardMessage[] = [];
 
-  for (const row of rows) {
+  for (const row of visibleRows) {
     try {
       const payload = decryptGmailPayload(row.encrypted_payload);
       const tokens = await ensureFreshGmailTokens(payload);
@@ -240,6 +246,88 @@ export async function getGmailDashboardData() {
     messages,
     error: null,
   };
+}
+
+export async function performGmailMessageAction({
+  account,
+  action,
+  gmailId,
+}: {
+  account: string;
+  action: "archive" | "star" | "unstar" | "read" | "unread";
+  gmailId: string;
+}) {
+  const row = await getGmailConnectionRow(account);
+
+  if (!row) {
+    throw new Error("Gmail account is not connected.");
+  }
+
+  const payload = decryptGmailPayload(row.encrypted_payload);
+  const tokens = await ensureFreshGmailTokens(payload);
+  const labels = getLabelMutation(action);
+  const response = await fetch(
+    `https://gmail.googleapis.com/gmail/v1/users/me/messages/${gmailId}/modify`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${tokens.access_token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(labels),
+    },
+  );
+
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`Gmail action failed: ${body}`);
+  }
+
+  if (tokens.access_token !== payload.tokens.access_token) {
+    await storeEncryptedGmailConnection(payload.profile, tokens);
+  }
+}
+
+async function getGmailConnectionRow(account: string) {
+  const supabase = getSupabaseAdminClient();
+
+  if (!supabase) {
+    return null;
+  }
+
+  const { data, error } = await supabase
+    .from("gmail_connections")
+    .select(
+      "email_address, provider, messages_total, threads_total, history_id, sort_order, encrypted_payload, connected_at, updated_at",
+    )
+    .eq("email_address", account)
+    .single();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data as GmailConnectionRow;
+}
+
+function getLabelMutation(action: "archive" | "star" | "unstar" | "read" | "unread") {
+  if (action === "archive") {
+    return { removeLabelIds: ["INBOX"] };
+  }
+
+  if (action === "star") {
+    return { addLabelIds: ["STARRED"] };
+  }
+
+  if (action === "unstar") {
+    return { removeLabelIds: ["STARRED"] };
+  }
+
+  if (action === "read") {
+    return { removeLabelIds: ["UNREAD"] };
+  }
+
+  return { addLabelIds: ["UNREAD"] };
 }
 
 async function selectGmailConnectionRows() {
@@ -380,10 +468,13 @@ async function getRecentGmailMessages(account: string, accessToken: string) {
         ]),
       );
       const date = headers.get("date");
+      const from = headers.get("from") ?? "Remitente";
 
       return {
-        id: data.id,
-        sender: cleanEmailName(headers.get("from") ?? "Remitente"),
+        id: `${account}:${data.id}`,
+        gmailId: data.id,
+        sender: cleanEmailName(from),
+        fromEmail: extractEmailAddress(from),
         account,
         subject: headers.get("subject") || "(sin asunto)",
         preview: data.snippet ?? "",
@@ -496,6 +587,10 @@ function decryptGmailPayload(payload: EncryptedGmailPayload) {
 
 function cleanEmailName(value: string) {
   return value.replace(/\s*<[^>]+>\s*$/, "").replace(/^"|"$/g, "");
+}
+
+function extractEmailAddress(value: string) {
+  return value.match(/<([^>]+)>/)?.[1] ?? value.match(/[^\s<]+@[^\s>]+/)?.[0];
 }
 
 function formatMessageDate(value: string) {

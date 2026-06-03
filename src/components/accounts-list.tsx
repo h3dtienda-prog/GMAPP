@@ -1,15 +1,17 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronDown, ChevronUp, GripVertical } from "lucide-react";
 import type { GmailDashboardAccount } from "@/lib/gmail";
 
 type AccountsListProps = {
   accounts: GmailDashboardAccount[];
+  selectedAccount?: string;
 };
 
-export function AccountsList({ accounts }: AccountsListProps) {
+export function AccountsList({ accounts, selectedAccount }: AccountsListProps) {
   const router = useRouter();
   const [orderedAccounts, setOrderedAccounts] = useState(accounts);
   const [draggedAddress, setDraggedAddress] = useState<string | null>(null);
@@ -109,6 +111,8 @@ export function AccountsList({ accounts }: AccountsListProps) {
           className={`rounded-lg border bg-white p-3 transition ${
             draggedAddress === account.address
               ? "border-[#1a73e8] opacity-60"
+              : selectedAccount === account.address
+                ? "border-[#1a73e8] shadow-sm"
               : "border-[#d8d2c6]"
           }`}
         >
@@ -122,8 +126,13 @@ export function AccountsList({ accounts }: AccountsListProps) {
             </button>
             <span className="mt-2 size-2.5 shrink-0 rounded-full bg-red-500" />
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold">{account.address}</p>
-              <p className="truncate text-xs text-[#5f6368]">
+              <Link
+                href={`/?account=${encodeURIComponent(account.address)}`}
+                className="block truncate text-sm font-semibold hover:text-[#174ea6]"
+              >
+                {account.address}
+              </Link>
+              <p className="mt-1 truncate text-xs text-[#5f6368]">
                 {account.messagesTotal.toLocaleString("es")} mensajes
               </p>
             </div>
