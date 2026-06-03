@@ -35,6 +35,7 @@ export type GmailConnectionRow = {
   messages_total: number;
   threads_total: number;
   history_id: string | null;
+  sort_order?: number | null;
   encrypted_payload: EncryptedGmailPayload;
   connected_at: string;
   updated_at: string;
@@ -61,6 +62,7 @@ export type GmailDashboardAccount = {
   status: string;
   messagesTotal: number;
   threadsTotal: number;
+  sortOrder: number;
 };
 
 export type GmailDashboardMessage = {
@@ -187,12 +189,7 @@ export async function getGmailDashboardData() {
     };
   }
 
-  const { data, error } = await supabase
-    .from("gmail_connections")
-    .select(
-      "email_address, provider, messages_total, threads_total, history_id, encrypted_payload, connected_at, updated_at",
-    )
-    .order("connected_at", { ascending: false });
+  const { data, error } = await selectGmailConnectionRows();
 
   if (error) {
     return {
@@ -202,14 +199,20 @@ export async function getGmailDashboardData() {
     };
   }
 
-  const rows = (data ?? []) as GmailConnectionRow[];
-  const accounts: GmailDashboardAccount[] = rows.map((row) => ({
+  const rows = ((data ?? []) as GmailConnectionRow[]).sort(
+    (first, second) =>
+      (first.sort_order ?? Number.MAX_SAFE_INTEGER) -
+        (second.sort_order ?? Number.MAX_SAFE_INTEGER) ||
+      first.email_address.localeCompare(second.email_address),
+  );
+  const accounts: GmailDashboardAccount[] = rows.map((row, index) => ({
     address: row.email_address,
     provider: row.provider === "gmail" ? "Gmail" : row.provider,
     unread: 0,
     status: "Conectada",
     messagesTotal: row.messages_total,
     threadsTotal: row.threads_total,
+    sortOrder: row.sort_order ?? index,
   }));
   const messages: GmailDashboardMessage[] = [];
 
@@ -237,6 +240,37 @@ export async function getGmailDashboardData() {
     messages,
     error: null,
   };
+}
+
+async function selectGmailConnectionRows() {
+  const supabase = getSupabaseAdminClient();
+
+  if (!supabase) {
+    return { data: null, error: null };
+  }
+
+  const queryWithOrder = await supabase
+    .from("gmail_connections")
+    .select(
+      "email_address, provider, messages_total, threads_total, history_id, sort_order, encrypted_payload, connected_at, updated_at",
+    )
+    .order("sort_order", { ascending: true, nullsFirst: false })
+    .order("connected_at", { ascending: true });
+
+  if (!queryWithOrder.error) {
+    return queryWithOrder;
+  }
+
+  if (!queryWithOrder.error.message.includes("sort_order")) {
+    return queryWithOrder;
+  }
+
+  return supabase
+    .from("gmail_connections")
+    .select(
+      "email_address, provider, messages_total, threads_total, history_id, encrypted_payload, connected_at, updated_at",
+    )
+    .order("connected_at", { ascending: true });
 }
 
 async function ensureFreshGmailTokens(payload: DecryptedGmailPayload) {

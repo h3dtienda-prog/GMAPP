@@ -54,6 +54,12 @@ La migracion esta en:
 supabase/migrations/20260603200751_create_gmail_connections.sql
 ```
 
+La migracion para ordenar cuentas manualmente esta en:
+
+```text
+supabase/migrations/20260603232209_add_gmail_connection_sort_order.sql
+```
+
 Para aplicarla:
 
 1. Crear un proyecto en Supabase.

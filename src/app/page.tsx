@@ -17,6 +17,7 @@ import {
   Star,
   Tag,
 } from "lucide-react";
+import { AccountsList } from "@/components/accounts-list";
 import { getGmailDashboardData } from "@/lib/gmail";
 
 export const dynamic = "force-dynamic";
@@ -156,39 +157,12 @@ export default async function Home({ searchParams }: HomeProps) {
                 <Plus size={17} />
               </a>
             </div>
-            <div className="space-y-2">
-              {accounts.length > 0 ? (
-                accounts.map((account) => (
-                  <div
-                    key={account.address}
-                    className="rounded-lg border border-[#d8d2c6] bg-white p-3"
-                  >
-                    <div className="flex items-start gap-3">
-                      <span className="mt-1 size-2.5 rounded-full bg-red-500" />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold">
-                          {account.address}
-                        </p>
-                        <p className="truncate text-xs text-[#5f6368]">
-                          {account.messagesTotal.toLocaleString("es")} mensajes
-                        </p>
-                      </div>
-                      <span className="rounded-md bg-[#e6f4ea] px-2 py-1 text-xs font-semibold text-[#137333]">
-                        {account.status}
-                      </span>
-                    </div>
-                    <div className="mt-3 flex items-center justify-between text-xs text-[#5f6368]">
-                      <span>{account.provider}</span>
-                      <span>{account.threadsTotal.toLocaleString("es")} hilos</span>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="rounded-lg border border-dashed border-[#d8d2c6] bg-white p-4 text-sm text-[#5f6368]">
-                  No hay cuentas conectadas todavia.
-                </div>
-              )}
-            </div>
+            <AccountsList
+              key={accounts
+                .map((account) => `${account.address}:${account.sortOrder}`)
+                .join("|")}
+              accounts={accounts}
+            />
           </section>
         </aside>
 
