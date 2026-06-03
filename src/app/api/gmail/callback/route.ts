@@ -12,13 +12,17 @@ export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get("code");
   const error = request.nextUrl.searchParams.get("error");
   const state = request.nextUrl.searchParams.get("state");
-  const expectedState = request.cookies.get("gmail_oauth_state")?.value;
+  const validStates =
+    request.cookies
+      .get("gmail_oauth_state")
+      ?.value.split(".")
+      .filter(Boolean) ?? [];
 
   if (error) {
     return redirectWithStatus(origin, `/?gmail=error&reason=${error}`);
   }
 
-  if (!code || !state || state !== expectedState) {
+  if (!code || !state || !validStates.includes(state)) {
     return redirectWithStatus(origin, "/?gmail=invalid-state");
   }
 
