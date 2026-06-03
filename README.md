@@ -4,6 +4,8 @@ Centro de correo para manejar varias cuentas desde una sola vista.
 
 Repositorio GitHub: https://github.com/h3dtienda-prog/GMAPP
 
+Produccion Vercel: https://gmapp-seven.vercel.app
+
 ## Estado actual
 
 - App Next.js con TypeScript y Tailwind CSS.
@@ -82,7 +84,7 @@ http://127.0.0.1:3000/api/gmail/callback
 Cuando tengas la URL final de Vercel, agregar tambien este redirect URI en Google Cloud:
 
 ```text
-https://TU-DOMINIO-VERCEL/api/gmail/callback
+https://gmapp-seven.vercel.app/api/gmail/callback
 ```
 
 Y en Vercel configurar:
@@ -90,7 +92,7 @@ Y en Vercel configurar:
 ```bash
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
-GOOGLE_REDIRECT_URI=https://TU-DOMINIO-VERCEL/api/gmail/callback
+GOOGLE_REDIRECT_URI=https://gmapp-seven.vercel.app/api/gmail/callback
 GMAIL_TOKEN_ENCRYPTION_KEY=
 SUPABASE_URL=
 SUPABASE_SECRET_KEY=
