@@ -1,6 +1,7 @@
 import { createCipheriv, createHash, randomBytes } from "crypto";
 import { mkdir, writeFile } from "fs/promises";
 import path from "path";
+import { getSupabaseAdminClient } from "@/lib/supabase-admin";
 
 export const gmailScopes = [
   "https://www.googleapis.com/auth/gmail.readonly",
@@ -126,6 +127,44 @@ export async function storeEncryptedGmailConnection(
   profile: GmailProfile,
   tokens: GmailTokenResponse,
 ) {
+  const encryptedPayload = encryptGmailPayload(profile, tokens);
+  const supabase = getSupabaseAdminClient();
+
+  if (supabase) {
+    const { error } = await supabase.from("gmail_connections").upsert(
+      {
+        email_address: profile.emailAddress,
+        provider: "gmail",
+        messages_total: profile.messagesTotal,
+        threads_total: profile.threadsTotal,
+        history_id: profile.historyId,
+        encrypted_payload: encryptedPayload,
+        connected_at: new Date().toISOString(),
+      },
+      {
+        onConflict: "email_address",
+      },
+    );
+
+    if (error) {
+      throw new Error(`Supabase Gmail connection save failed: ${error.message}`);
+    }
+
+    return;
+  }
+
+  const dataDir = path.join(process.cwd(), ".data");
+  await mkdir(dataDir, { recursive: true });
+  await writeFile(
+    path.join(dataDir, "gmail-connection.json"),
+    JSON.stringify(encryptedPayload, null, 2),
+  );
+}
+
+function encryptGmailPayload(
+  profile: GmailProfile,
+  tokens: GmailTokenResponse,
+) {
   const secret = process.env.GMAIL_TOKEN_ENCRYPTION_KEY;
 
   if (!secret) {
@@ -146,19 +185,10 @@ export async function storeEncryptedGmailConnection(
   ]);
   const tag = cipher.getAuthTag();
 
-  const dataDir = path.join(process.cwd(), ".data");
-  await mkdir(dataDir, { recursive: true });
-  await writeFile(
-    path.join(dataDir, "gmail-connection.json"),
-    JSON.stringify(
-      {
-        algorithm: "aes-256-gcm",
-        iv: iv.toString("base64"),
-        tag: tag.toString("base64"),
-        data: encrypted.toString("base64"),
-      },
-      null,
-      2,
-    ),
-  );
+  return {
+    algorithm: "aes-256-gcm",
+    iv: iv.toString("base64"),
+    tag: tag.toString("base64"),
+    data: encrypted.toString("base64"),
+  };
 }

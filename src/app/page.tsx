@@ -128,7 +128,7 @@ function getGmailStatus(searchParams: Awaited<HomeProps["searchParams"]>) {
     return {
       tone: "success",
       title: "Gmail conectado",
-      text: `${searchParams.email ?? "La cuenta"} ya autorizo la app. Los tokens quedaron guardados cifrados para desarrollo local.`,
+      text: `${searchParams.email ?? "La cuenta"} ya autorizo la app. Los tokens quedaron guardados cifrados.`,
     };
   }
 
@@ -480,8 +480,8 @@ export default async function Home({ searchParams }: HomeProps) {
                   <div>
                     <h2 className="text-lg font-semibold">Conexiones</h2>
                     <p className="mt-1 text-sm text-[#5f6368]">
-                      Gmail sera la primera integracion real; Outlook e IMAP
-                      quedan preparados como proveedores siguientes.
+                      Gmail ya tiene OAuth real; Supabase guardara las
+                      conexiones cifradas cuando este configurado en Vercel.
                     </p>
                   </div>
                   <div className="grid gap-2">
