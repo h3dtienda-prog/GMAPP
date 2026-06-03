@@ -1,4 +1,9 @@
-import { createCipheriv, createHash, randomBytes } from "crypto";
+import {
+  createCipheriv,
+  createDecipheriv,
+  createHash,
+  randomBytes,
+} from "crypto";
 import { mkdir, writeFile } from "fs/promises";
 import path from "path";
 import { getSupabaseAdminClient } from "@/lib/supabase-admin";
@@ -22,6 +27,54 @@ export type GmailProfile = {
   messagesTotal: number;
   threadsTotal: number;
   historyId: string;
+};
+
+export type GmailConnectionRow = {
+  email_address: string;
+  provider: string;
+  messages_total: number;
+  threads_total: number;
+  history_id: string | null;
+  encrypted_payload: EncryptedGmailPayload;
+  connected_at: string;
+  updated_at: string;
+};
+
+export type EncryptedGmailPayload = {
+  algorithm: "aes-256-gcm";
+  iv: string;
+  tag: string;
+  data: string;
+};
+
+export type DecryptedGmailPayload = {
+  connectedAt: string;
+  expiresAt?: string;
+  profile: GmailProfile;
+  tokens: GmailTokenResponse;
+};
+
+export type GmailDashboardAccount = {
+  address: string;
+  provider: string;
+  unread: number;
+  status: string;
+  messagesTotal: number;
+  threadsTotal: number;
+};
+
+export type GmailDashboardMessage = {
+  id: string;
+  sender: string;
+  account: string;
+  subject: string;
+  preview: string;
+  time: string;
+  tag: string;
+  state: string;
+  unread: boolean;
+  attachment: boolean;
+  to?: string;
 };
 
 export function getGoogleOAuthConfig(origin?: string) {
@@ -123,6 +176,196 @@ export async function getGmailProfile(accessToken: string) {
   return (await response.json()) as GmailProfile;
 }
 
+export async function getGmailDashboardData() {
+  const supabase = getSupabaseAdminClient();
+
+  if (!supabase) {
+    return {
+      accounts: [] as GmailDashboardAccount[],
+      messages: [] as GmailDashboardMessage[],
+      error: null as string | null,
+    };
+  }
+
+  const { data, error } = await supabase
+    .from("gmail_connections")
+    .select(
+      "email_address, provider, messages_total, threads_total, history_id, encrypted_payload, connected_at, updated_at",
+    )
+    .order("connected_at", { ascending: false });
+
+  if (error) {
+    return {
+      accounts: [] as GmailDashboardAccount[],
+      messages: [] as GmailDashboardMessage[],
+      error: error.message,
+    };
+  }
+
+  const rows = (data ?? []) as GmailConnectionRow[];
+  const accounts: GmailDashboardAccount[] = rows.map((row) => ({
+    address: row.email_address,
+    provider: row.provider === "gmail" ? "Gmail" : row.provider,
+    unread: 0,
+    status: "Conectada",
+    messagesTotal: row.messages_total,
+    threadsTotal: row.threads_total,
+  }));
+  const messages: GmailDashboardMessage[] = [];
+
+  for (const row of rows) {
+    try {
+      const payload = decryptGmailPayload(row.encrypted_payload);
+      const tokens = await ensureFreshGmailTokens(payload);
+      const recentMessages = await getRecentGmailMessages(
+        row.email_address,
+        tokens.access_token,
+      );
+
+      messages.push(...recentMessages);
+
+      if (tokens.access_token !== payload.tokens.access_token) {
+        await storeEncryptedGmailConnection(payload.profile, tokens);
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  return {
+    accounts,
+    messages,
+    error: null,
+  };
+}
+
+async function ensureFreshGmailTokens(payload: DecryptedGmailPayload) {
+  if (!payload.expiresAt || new Date(payload.expiresAt).getTime() > Date.now()) {
+    return payload.tokens;
+  }
+
+  if (!payload.tokens.refresh_token) {
+    return payload.tokens;
+  }
+
+  return refreshGmailAccessToken(payload.tokens.refresh_token);
+}
+
+async function refreshGmailAccessToken(refreshToken: string) {
+  const config = getGoogleOAuthConfig();
+
+  if (!config.configured) {
+    throw new Error(`Missing env vars: ${config.missing.join(", ")}`);
+  }
+
+  const response = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: new URLSearchParams({
+      client_id: config.clientId,
+      client_secret: config.clientSecret,
+      grant_type: "refresh_token",
+      refresh_token: refreshToken,
+    }),
+  });
+
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`Google token refresh failed: ${body}`);
+  }
+
+  const refreshed = (await response.json()) as GmailTokenResponse;
+
+  return {
+    ...refreshed,
+    refresh_token: refreshToken,
+  };
+}
+
+async function getRecentGmailMessages(account: string, accessToken: string) {
+  const listResponse = await fetch(
+    "https://gmail.googleapis.com/gmail/v1/users/me/messages?" +
+      new URLSearchParams({
+        labelIds: "INBOX",
+        maxResults: "10",
+      }).toString(),
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+      next: { revalidate: 60 },
+    },
+  );
+
+  if (!listResponse.ok) {
+    const body = await listResponse.text();
+    throw new Error(`Gmail messages request failed: ${body}`);
+  }
+
+  const list = (await listResponse.json()) as {
+    messages?: Array<{ id: string }>;
+  };
+
+  const messages = await Promise.all(
+    (list.messages ?? []).map(async (message) => {
+      const response = await fetch(
+        `https://gmail.googleapis.com/gmail/v1/users/me/messages/${message.id}?` +
+          new URLSearchParams({
+            format: "metadata",
+            metadataHeaders: "From",
+          }).toString() +
+          "&metadataHeaders=Subject&metadataHeaders=Date&metadataHeaders=To",
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+          next: { revalidate: 60 },
+        },
+      );
+
+      if (!response.ok) {
+        const body = await response.text();
+        throw new Error(`Gmail message request failed: ${body}`);
+      }
+
+      const data = (await response.json()) as {
+        id: string;
+        labelIds?: string[];
+        snippet?: string;
+        payload?: {
+          headers?: Array<{ name: string; value: string }>;
+          parts?: Array<unknown>;
+        };
+      };
+      const headers = new Map(
+        (data.payload?.headers ?? []).map((header) => [
+          header.name.toLowerCase(),
+          header.value,
+        ]),
+      );
+      const date = headers.get("date");
+
+      return {
+        id: data.id,
+        sender: cleanEmailName(headers.get("from") ?? "Remitente"),
+        account,
+        subject: headers.get("subject") || "(sin asunto)",
+        preview: data.snippet ?? "",
+        time: date ? formatMessageDate(date) : "",
+        tag: data.labelIds?.includes("IMPORTANT") ? "Importante" : "Inbox",
+        state: data.labelIds?.includes("UNREAD") ? "No leido" : "Leido",
+        unread: data.labelIds?.includes("UNREAD") ?? false,
+        attachment: data.labelIds?.includes("SENT") ? false : false,
+        to: headers.get("to"),
+      };
+    }),
+  );
+
+  return messages;
+}
+
 export async function storeEncryptedGmailConnection(
   profile: GmailProfile,
   tokens: GmailTokenResponse,
@@ -176,6 +419,7 @@ function encryptGmailPayload(
   const cipher = createCipheriv("aes-256-gcm", key, iv);
   const plaintext = JSON.stringify({
     connectedAt: new Date().toISOString(),
+    expiresAt: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
     profile,
     tokens,
   });
@@ -191,4 +435,46 @@ function encryptGmailPayload(
     tag: tag.toString("base64"),
     data: encrypted.toString("base64"),
   };
+}
+
+function decryptGmailPayload(payload: EncryptedGmailPayload) {
+  const secret = process.env.GMAIL_TOKEN_ENCRYPTION_KEY;
+
+  if (!secret) {
+    throw new Error("Missing env var: GMAIL_TOKEN_ENCRYPTION_KEY");
+  }
+
+  const key = createHash("sha256").update(secret).digest();
+  const decipher = createDecipheriv(
+    "aes-256-gcm",
+    key,
+    Buffer.from(payload.iv, "base64"),
+  );
+  decipher.setAuthTag(Buffer.from(payload.tag, "base64"));
+
+  const decrypted = Buffer.concat([
+    decipher.update(Buffer.from(payload.data, "base64")),
+    decipher.final(),
+  ]);
+
+  return JSON.parse(decrypted.toString("utf8")) as DecryptedGmailPayload;
+}
+
+function cleanEmailName(value: string) {
+  return value.replace(/\s*<[^>]+>\s*$/, "").replace(/^"|"$/g, "");
+}
+
+function formatMessageDate(value: string) {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  return new Intl.DateTimeFormat("es", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
 }
