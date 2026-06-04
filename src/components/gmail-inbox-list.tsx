@@ -75,6 +75,7 @@ function ActionForm({
         disabled
         className="grid size-8 place-items-center rounded-full opacity-40"
         aria-label={label}
+        title={label}
       >
         {children}
       </button>
@@ -95,6 +96,7 @@ function ActionForm({
       <button
         className="grid size-8 place-items-center rounded-full text-[#5f6368] hover:bg-[#f1f3f4]"
         aria-label={label}
+        title={label}
       >
         {children}
       </button>
@@ -120,7 +122,11 @@ export function MoveToLabelMenu({
 
   return (
     <details className="relative">
-      <summary className="grid size-8 cursor-pointer list-none place-items-center rounded-full text-[#5f6368] hover:bg-[#f1f3f4]">
+      <summary
+        className="grid size-8 cursor-pointer list-none place-items-center rounded-full text-[#5f6368] hover:bg-[#f1f3f4]"
+        aria-label="Mover a etiqueta"
+        title="Mover a etiqueta"
+      >
         <Tag size={16} />
       </summary>
       <div className="absolute left-0 z-20 mt-2 max-h-72 w-64 overflow-auto rounded-xl border border-[#dadce0] bg-white p-2 text-sm shadow-lg">
@@ -224,6 +230,7 @@ export function GmailInboxList({
               onChange={toggleAll}
               className="size-4 accent-[#0b57d0]"
               aria-label="Seleccionar correos visibles"
+              title="Seleccionar correos visibles"
             />
           </label>
           {selectedMessages.length > 0 ? (
@@ -275,11 +282,16 @@ export function GmailInboxList({
                 href={currentHref}
                 className="grid size-8 place-items-center rounded-full hover:bg-[#f1f3f4]"
                 aria-label="Refrescar"
+                title="Refrescar"
               >
                 <RefreshCw size={18} />
               </Link>
               <details className="relative">
-                <summary className="grid size-8 cursor-pointer list-none place-items-center rounded-full hover:bg-[#f1f3f4]">
+                <summary
+                  className="grid size-8 cursor-pointer list-none place-items-center rounded-full hover:bg-[#f1f3f4]"
+                  aria-label="Mas opciones"
+                  title="Mas opciones"
+                >
                   <MoreVertical size={18} />
                 </summary>
                 <div className="absolute left-0 z-10 mt-2 w-56 rounded-xl border border-[#dadce0] bg-white p-2 text-sm shadow-lg">
@@ -361,6 +373,7 @@ export function GmailInboxList({
                   onChange={() => toggleMessage(message.id)}
                   className="size-4 accent-[#0b57d0]"
                   aria-label={`Seleccionar ${message.subject}`}
+                  title={`Seleccionar ${message.subject}`}
                 />
                 <ActionForm
                   action="star"

@@ -258,21 +258,32 @@ function GmailTopBar({
           type="submit"
           className="grid size-8 place-items-center rounded-full hover:bg-[#dbe7f8]"
           aria-label="Buscar"
+          title="Buscar"
         >
           <SlidersHorizontal size={20} />
         </button>
       </form>
       <div className="hidden items-center gap-2 text-[#3c4043] md:flex">
-        <button className="grid size-10 place-items-center rounded-full hover:bg-[#e8eaed]">
+        <button
+          className="grid size-10 place-items-center rounded-full hover:bg-[#e8eaed]"
+          aria-label="Ayuda"
+          title="Ayuda"
+        >
           <HelpCircle size={20} />
         </button>
         <Link
           href="/?settings=appearance"
           className="grid size-10 place-items-center rounded-full hover:bg-[#e8eaed]"
+          aria-label="Configuracion"
+          title="Configuracion"
         >
           <Settings size={20} />
         </Link>
-        <button className="grid size-10 place-items-center rounded-full hover:bg-[#e8eaed]">
+        <button
+          className="grid size-10 place-items-center rounded-full hover:bg-[#e8eaed]"
+          aria-label="Aplicaciones"
+          title="Aplicaciones"
+        >
           <Grid3X3 size={20} />
         </button>
         <HeaderIdentity accounts={accounts} selectedAccount={selectedAccount} />
@@ -308,6 +319,7 @@ function MessageActionForm({
       <button
         className="grid size-10 place-items-center rounded-full text-[#5f6368] hover:bg-[#f1f3f4]"
         aria-label={label}
+        title={label}
       >
         {children}
       </button>
@@ -340,6 +352,7 @@ function GmailMessageReader({
             href={backHref}
             className="grid size-10 place-items-center rounded-full hover:bg-[#f1f3f4]"
             aria-label="Volver"
+            title="Volver"
           >
             <ChevronLeft size={20} />
           </a>
@@ -352,7 +365,11 @@ function GmailMessageReader({
           >
             <Archive size={18} />
           </MessageActionForm>
-          <button className="grid size-10 place-items-center rounded-full hover:bg-[#f1f3f4]">
+          <button
+            className="grid size-10 place-items-center rounded-full hover:bg-[#f1f3f4]"
+            aria-label="Eliminar"
+            title="Eliminar"
+          >
             <Trash2 size={18} />
           </button>
           <MessageActionForm
@@ -364,7 +381,11 @@ function GmailMessageReader({
           >
             <Star size={18} />
           </MessageActionForm>
-          <button className="grid size-10 place-items-center rounded-full hover:bg-[#f1f3f4]">
+          <button
+            className="grid size-10 place-items-center rounded-full hover:bg-[#f1f3f4]"
+            aria-label="Mas opciones"
+            title="Mas opciones"
+          >
             <MoreVertical size={18} />
           </button>
           <MoveToLabelMenu
@@ -374,8 +395,12 @@ function GmailMessageReader({
           />
         </div>
         <div className="hidden items-center gap-2 md:flex">
-          <Printer size={18} />
-          <ExternalLink size={18} />
+          <span title="Imprimir">
+            <Printer size={18} />
+          </span>
+          <span title="Abrir en ventana nueva">
+            <ExternalLink size={18} />
+          </span>
         </div>
       </div>
 
@@ -408,10 +433,18 @@ function GmailMessageReader({
             </p>
           </div>
           <div className="flex items-center gap-3 text-[#5f6368]">
-            <Star size={18} />
-            <SmilePlus size={18} />
-            <Reply size={18} />
-            <MoreVertical size={18} />
+            <span title="Destacar">
+              <Star size={18} />
+            </span>
+            <span title="Agregar reaccion">
+              <SmilePlus size={18} />
+            </span>
+            <span title="Responder">
+              <Reply size={18} />
+            </span>
+            <span title="Mas opciones">
+              <MoreVertical size={18} />
+            </span>
           </div>
         </div>
 
