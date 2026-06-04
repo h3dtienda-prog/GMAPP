@@ -4,11 +4,13 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ChevronDown, ChevronUp, GripVertical } from "lucide-react";
-import type { GmailDashboardAccount } from "@/lib/gmail";
+import { ChevronDown, ChevronUp, Folder, GripVertical } from "lucide-react";
+import type { GmailDashboardAccount, GmailDashboardLabel } from "@/lib/gmail";
 
 type AccountsListProps = {
   accounts: GmailDashboardAccount[];
+  activeLabel?: string;
+  labels: GmailDashboardLabel[];
   selectedAccount?: string;
 };
 
@@ -81,7 +83,22 @@ function applyLocalProfiles(accounts: GmailDashboardAccount[]) {
   }
 }
 
-export function AccountsList({ accounts, selectedAccount }: AccountsListProps) {
+function buildAccountHref(account: string, label?: string) {
+  const params = new URLSearchParams({ account });
+
+  if (label) {
+    params.set("label", label);
+  }
+
+  return `/?${params.toString()}`;
+}
+
+export function AccountsList({
+  accounts,
+  activeLabel,
+  labels,
+  selectedAccount,
+}: AccountsListProps) {
   const [orderedAccounts, setOrderedAccounts] = useState(accounts);
   const [draggedAddress, setDraggedAddress] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -182,92 +199,141 @@ export function AccountsList({ accounts, selectedAccount }: AccountsListProps) {
 
   return (
     <div className="space-y-2">
-      {orderedAccounts.map((account, index) => (
-        <div
-          key={account.address}
-          draggable
-          onDragStart={() => setDraggedAddress(account.address)}
-          onDragEnd={() => setDraggedAddress(null)}
-          onDragOver={(event) => event.preventDefault()}
-          onDrop={(event) => {
-            event.preventDefault();
+      {orderedAccounts.map((account, index) => {
+        const isSelected = selectedAccount === account.address;
+        const accountLabels = labels.filter(
+          (label) => label.account === account.address,
+        );
 
-            if (draggedAddress) {
-              reorder(draggedAddress, account.address);
-            }
-          }}
-          className={`rounded-[18px] border bg-white px-2.5 py-2 transition ${
-            draggedAddress === account.address
-              ? "border-[#1a73e8] opacity-60"
-              : selectedAccount === account.address
-                ? "border-[#1a73e8] shadow-sm"
-                : "border-[#d8d2c6]"
-          }`}
-        >
-          <div className="flex items-start gap-2">
-            <button
-              type="button"
-              className="mt-1 grid size-6 shrink-0 cursor-grab place-items-center rounded-full text-[#5f6368] hover:bg-[#f1f3f4]"
-              aria-label={`Arrastrar ${account.address}`}
-            >
-              <GripVertical size={16} />
-            </button>
-            <Link
-              href={`/?account=${encodeURIComponent(account.address)}`}
-              className="relative shrink-0"
-            >
-              {account.logoUrl ? (
-                <img
-                  src={account.logoUrl}
-                  alt=""
-                className="size-9 rounded-full border border-[#d8d2c6] object-cover"
-                />
-              ) : (
-                <div className="grid size-9 place-items-center rounded-full bg-[#e8f0fe] text-sm font-semibold text-[#174ea6]">
-                  {getInitials(account.displayName)}
-                </div>
-              )}
-              <span
-                className={`absolute -right-0.5 -top-0.5 size-3 rounded-full border-2 border-white ${
-                  isConnected(account) ? "bg-[#188038]" : "bg-[#d93025]"
-                }`}
-              />
-            </Link>
-            <div className="min-w-0 flex-1">
-              <Link
-                href={`/?account=${encodeURIComponent(account.address)}`}
-                className="block truncate text-sm font-semibold hover:text-[#174ea6]"
+        return (
+          <div
+            key={account.address}
+            draggable
+            onDragStart={() => setDraggedAddress(account.address)}
+            onDragEnd={() => setDraggedAddress(null)}
+            onDragOver={(event) => event.preventDefault()}
+            onDrop={(event) => {
+              event.preventDefault();
+
+              if (draggedAddress) {
+                reorder(draggedAddress, account.address);
+              }
+            }}
+            className={`rounded-[18px] border bg-white px-2.5 py-2 transition ${
+              draggedAddress === account.address
+                ? "border-[#1a73e8] opacity-60"
+                : isSelected
+                  ? "border-[#1a73e8] shadow-sm"
+                  : "border-[#d8d2c6]"
+            }`}
+          >
+            <div className="flex items-start gap-2">
+              <button
+                type="button"
+                className="mt-1 grid size-6 shrink-0 cursor-grab place-items-center rounded-full text-[#5f6368] hover:bg-[#f1f3f4]"
+                aria-label={`Arrastrar ${account.address}`}
               >
-                {account.displayName}
+                <GripVertical size={16} />
+              </button>
+              <Link
+                href={buildAccountHref(account.address)}
+                className="relative shrink-0"
+              >
+                {account.logoUrl ? (
+                  <img
+                    src={account.logoUrl}
+                    alt=""
+                    className="size-9 rounded-full border border-[#d8d2c6] object-cover"
+                  />
+                ) : (
+                  <div className="grid size-9 place-items-center rounded-full bg-[#e8f0fe] text-sm font-semibold text-[#174ea6]">
+                    {getInitials(account.displayName)}
+                  </div>
+                )}
+                <span
+                  className={`absolute -right-0.5 -top-0.5 size-3 rounded-full border-2 border-white ${
+                    isConnected(account) ? "bg-[#188038]" : "bg-[#d93025]"
+                  }`}
+                />
               </Link>
-              <div className="mt-1 flex items-center justify-between gap-2 text-xs text-[#5f6368]">
-                <span>{account.provider}</span>
-                <div className="flex items-center gap-1">
-                  <span>{account.threadsTotal.toLocaleString("es")} hilos</span>
-                  <button
-                    type="button"
-                    className="grid size-6 place-items-center rounded-full hover:bg-[#f1f3f4] disabled:opacity-35"
-                    disabled={index === 0 || isSavingOrder}
-                    onClick={() => move(account.address, -1)}
-                    aria-label={`Subir ${account.address}`}
-                  >
-                    <ChevronUp size={13} />
-                  </button>
-                  <button
-                    type="button"
-                    className="grid size-6 place-items-center rounded-full hover:bg-[#f1f3f4] disabled:opacity-35"
-                    disabled={index === orderedAccounts.length - 1 || isSavingOrder}
-                    onClick={() => move(account.address, 1)}
-                    aria-label={`Bajar ${account.address}`}
-                  >
-                    <ChevronDown size={13} />
-                  </button>
+              <div className="min-w-0 flex-1">
+                <Link
+                  href={buildAccountHref(account.address)}
+                  className="block truncate text-sm font-semibold hover:text-[#174ea6]"
+                >
+                  {account.displayName}
+                </Link>
+                <div className="mt-1 flex items-center justify-between gap-2 text-xs text-[#5f6368]">
+                  <span>{account.provider}</span>
+                  <div className="flex items-center gap-1">
+                    <span>{account.threadsTotal.toLocaleString("es")} hilos</span>
+                    <button
+                      type="button"
+                      className="grid size-6 place-items-center rounded-full hover:bg-[#f1f3f4] disabled:opacity-35"
+                      disabled={index === 0 || isSavingOrder}
+                      onClick={() => move(account.address, -1)}
+                      aria-label={`Subir ${account.address}`}
+                    >
+                      <ChevronUp size={13} />
+                    </button>
+                    <button
+                      type="button"
+                      className="grid size-6 place-items-center rounded-full hover:bg-[#f1f3f4] disabled:opacity-35"
+                      disabled={index === orderedAccounts.length - 1 || isSavingOrder}
+                      onClick={() => move(account.address, 1)}
+                      aria-label={`Bajar ${account.address}`}
+                    >
+                      <ChevronDown size={13} />
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
+
+            {isSelected ? (
+              <div className="mt-2 border-t border-[#ece7dd] pt-2">
+                <div className="mb-1 flex items-center justify-between px-2 text-xs font-semibold text-[#3c4043]">
+                  <span>Etiquetas</span>
+                  <span className="text-base leading-none text-[#5f6368]">+</span>
+                </div>
+                {accountLabels.length === 0 ? (
+                  <p className="px-2 py-2 text-xs text-[#5f6368]">
+                    Esta cuenta no tiene etiquetas personalizadas.
+                  </p>
+                ) : (
+                  <div className="max-h-64 space-y-0.5 overflow-y-auto pr-1">
+                    {accountLabels.map((label) => {
+                      const count = label.unreadTotal ?? 0;
+
+                      return (
+                        <Link
+                          key={label.id}
+                          href={buildAccountHref(account.address, label.id)}
+                          className={`flex h-8 items-center justify-between gap-2 rounded-r-full px-2 text-xs ${
+                            activeLabel === label.id
+                              ? "bg-[#d3e3fd] font-semibold text-[#041e49]"
+                              : "text-[#3c4043] hover:bg-[#f1f3f4]"
+                          }`}
+                        >
+                          <span className="flex min-w-0 items-center gap-2">
+                            <Folder size={14} className="shrink-0 fill-current" />
+                            <span className="truncate">{label.name}</span>
+                          </span>
+                          {count > 0 ? (
+                            <span className="shrink-0 text-[11px] font-semibold">
+                              {count.toLocaleString("es")}
+                            </span>
+                          ) : null}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            ) : null}
           </div>
-        </div>
-      ))}
+        );
+      })}
       {saveError ? (
         <p className="rounded-md bg-[#fce8e6] px-3 py-2 text-xs font-medium text-[#a50e0e]">
           {saveError}

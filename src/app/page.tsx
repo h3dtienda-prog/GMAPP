@@ -43,6 +43,7 @@ type HomeProps = {
     email?: string;
     folder?: string;
     gmail?: string;
+    label?: string;
     message?: string;
     q?: string;
     reason?: string;
@@ -108,9 +109,11 @@ function buildListHref({
   folder,
   q,
   tab,
+  label,
 }: {
   account?: string;
   folder?: string;
+  label?: string;
   q?: string;
   tab?: string;
 }) {
@@ -126,6 +129,10 @@ function buildListHref({
 
   if (q) {
     params.set("q", q);
+  }
+
+  if (label) {
+    params.set("label", label);
   }
 
   if (tab && tab !== "primary") {
@@ -214,12 +221,14 @@ function getFolder(value: string | undefined) {
 function GmailTopBar({
   accounts,
   folder,
+  label,
   q,
   selectedAccount,
   tab,
 }: {
   accounts: GmailDashboardAccount[];
   folder: string;
+  label?: string;
   q: string;
   selectedAccount?: string;
   tab: string;
@@ -236,6 +245,7 @@ function GmailTopBar({
         {folder !== "inbox" ? (
           <input type="hidden" name="folder" value={folder} />
         ) : null}
+        {label ? <input type="hidden" name="label" value={label} /> : null}
         {tab !== "primary" ? <input type="hidden" name="tab" value={tab} /> : null}
         <Search size={20} />
         <input
@@ -437,11 +447,13 @@ export default async function Home({ searchParams }: HomeProps) {
   const gmailStatus = getGmailStatus(params);
   const selectedAccount = params.account;
   const activeFolder = getFolder(params.folder);
+  const activeLabel = selectedAccount ? params.label : undefined;
   const activeTab = params.tab ?? "primary";
   const query = params.q ?? "";
   const { accounts, messages, labels, error } = await getGmailDashboardData(
     selectedAccount,
     activeFolder,
+    activeLabel,
   );
   const queryMatchedMessages = messages.filter((message) =>
     messageMatchesQuery(message, query),
@@ -461,6 +473,7 @@ export default async function Home({ searchParams }: HomeProps) {
   const currentHref = buildListHref({
     account: selectedAccount,
     folder: activeFolder,
+    label: activeLabel,
     q: query,
     tab: activeTab,
   });
@@ -468,24 +481,28 @@ export default async function Home({ searchParams }: HomeProps) {
     primary: buildListHref({
       account: selectedAccount,
       folder: activeFolder,
+      label: activeLabel,
       q: query,
       tab: "primary",
     }),
     promotions: buildListHref({
       account: selectedAccount,
       folder: activeFolder,
+      label: activeLabel,
       q: query,
       tab: "promotions",
     }),
     social: buildListHref({
       account: selectedAccount,
       folder: activeFolder,
+      label: activeLabel,
       q: query,
       tab: "social",
     }),
     all: buildListHref({
       account: selectedAccount,
       folder: activeFolder,
+      label: activeLabel,
       q: query,
       tab: "all",
     }),
@@ -516,35 +533,39 @@ export default async function Home({ searchParams }: HomeProps) {
       count: messages.length,
       icon: Inbox,
       href: buildListHref({ account: selectedAccount, folder: "inbox" }),
-      active: !params.settings && !selectedMessage && activeFolder === "inbox",
+      active:
+        !params.settings &&
+        !selectedMessage &&
+        !activeLabel &&
+        activeFolder === "inbox",
     },
     {
       name: "No leidos",
       count: unreadCount,
       icon: Reply,
       href: buildListHref({ account: selectedAccount, folder: "unread" }),
-      active: activeFolder === "unread",
+      active: !activeLabel && activeFolder === "unread",
     },
     {
       name: "Seguimientos",
       count: 0,
       icon: Clock3,
       href: buildListHref({ account: selectedAccount, folder: "followups" }),
-      active: activeFolder === "followups",
+      active: !activeLabel && activeFolder === "followups",
     },
     {
       name: "Importantes",
       count: importantCount,
       icon: Star,
       href: buildListHref({ account: selectedAccount, folder: "important" }),
-      active: activeFolder === "important",
+      active: !activeLabel && activeFolder === "important",
     },
     {
       name: "Enviados",
       count: 0,
       icon: Send,
       href: buildListHref({ account: selectedAccount, folder: "sent" }),
-      active: activeFolder === "sent",
+      active: !activeLabel && activeFolder === "sent",
     },
     { name: "Configuracion", count: 0, icon: Settings, href: "/?settings=appearance", active: Boolean(params.settings) },
   ];
@@ -616,6 +637,8 @@ export default async function Home({ searchParams }: HomeProps) {
                 )
                 .join("|")}
               accounts={accounts}
+              activeLabel={activeLabel}
+              labels={labels}
               selectedAccount={selectedAccount}
             />
           </section>
@@ -626,6 +649,7 @@ export default async function Home({ searchParams }: HomeProps) {
           <GmailTopBar
             accounts={accounts}
             folder={activeFolder}
+            label={activeLabel}
             q={query}
             selectedAccount={selectedAccount}
             tab={activeTab}

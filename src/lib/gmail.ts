@@ -91,6 +91,8 @@ export type GmailDashboardLabel = {
   name: string;
   account: string;
   type: "system" | "user";
+  messagesTotal?: number;
+  unreadTotal?: number;
 };
 
 type GmailMailbox = "inbox" | "unread" | "important" | "sent" | "archive" | "followups";
@@ -197,6 +199,7 @@ export async function getGmailProfile(accessToken: string) {
 export async function getGmailDashboardData(
   selectedAccount?: string,
   mailbox: GmailMailbox = "inbox",
+  selectedLabelId?: string,
 ) {
   const supabase = getSupabaseAdminClient();
 
@@ -255,6 +258,7 @@ export async function getGmailDashboardData(
           row.email_address,
           tokens.access_token,
           mailbox,
+          selectedLabelId,
         );
       } catch (error) {
         if (!isInvalidGoogleCredentialsError(error) || !payload.tokens.refresh_token) {
@@ -266,6 +270,7 @@ export async function getGmailDashboardData(
           row.email_address,
           tokens.access_token,
           mailbox,
+          selectedLabelId,
         );
       }
 
@@ -519,13 +524,14 @@ async function getRecentGmailMessages(
   account: string,
   accessToken: string,
   mailbox: GmailMailbox,
+  selectedLabelId?: string,
 ) {
   let messageIds = await listRecentGmailMessageIds(
     accessToken,
-    getMailboxListOptions(mailbox),
+    selectedLabelId ? { labelId: selectedLabelId } : getMailboxListOptions(mailbox),
   );
 
-  if (messageIds.length === 0 && mailbox === "inbox") {
+  if (messageIds.length === 0 && mailbox === "inbox" && !selectedLabelId) {
     messageIds = await listRecentGmailMessageIds(accessToken);
   }
 
@@ -669,7 +675,13 @@ async function getGmailLabels(account: string, accessToken: string) {
   }
 
   const data = (await response.json()) as {
-    labels?: Array<{ id: string; name: string; type: "system" | "user" }>;
+    labels?: Array<{
+      id: string;
+      name: string;
+      type: "system" | "user";
+      messagesTotal?: number;
+      messagesUnread?: number;
+    }>;
   };
 
   return (data.labels ?? [])
@@ -678,6 +690,8 @@ async function getGmailLabels(account: string, accessToken: string) {
       id: label.id,
       name: label.name,
       type: label.type,
+      messagesTotal: label.messagesTotal,
+      unreadTotal: label.messagesUnread,
       account,
     }));
 }
