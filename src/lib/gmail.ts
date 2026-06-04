@@ -200,6 +200,7 @@ export async function getGmailDashboardData(
   selectedAccount?: string,
   mailbox: GmailMailbox = "inbox",
   selectedLabelId?: string,
+  loadMessages = true,
 ) {
   const supabase = getSupabaseAdminClient();
 
@@ -247,6 +248,15 @@ export async function getGmailDashboardData(
   const labels: GmailDashboardLabel[] = [];
   const connectionErrors: string[] = [];
   const maxMessagesPerAccount = selectedAccount ? 25 : 8;
+
+  if (!loadMessages) {
+    return {
+      accounts,
+      messages,
+      labels,
+      error: null,
+    };
+  }
 
   for (const row of visibleRows) {
     try {

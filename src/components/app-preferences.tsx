@@ -12,6 +12,8 @@ const defaults = {
   theme: "light",
 };
 
+type AppPreferenceValues = typeof defaults;
+
 function applyTheme(theme: string) {
   document.documentElement.classList.toggle("dark", theme === "dark");
 }
@@ -41,13 +43,25 @@ function readPreferences() {
 }
 
 async function readRemotePreferences() {
+  const localPreferences = readPreferences();
   const response = await fetch("/api/preferences", { cache: "no-store" });
 
   if (!response.ok) {
-    return readPreferences();
+    return localPreferences;
   }
 
-  return (await response.json()) as typeof defaults;
+  const remotePreferences = (await response.json()) as AppPreferenceValues;
+
+  return {
+    appName:
+      remotePreferences.appName !== defaults.appName ||
+      localPreferences.appName === defaults.appName
+        ? remotePreferences.appName
+        : localPreferences.appName,
+    appLogoUrl: remotePreferences.appLogoUrl || localPreferences.appLogoUrl,
+    faviconUrl: remotePreferences.faviconUrl || localPreferences.faviconUrl,
+    theme: remotePreferences.theme || localPreferences.theme,
+  };
 }
 
 export function AppPreferences() {

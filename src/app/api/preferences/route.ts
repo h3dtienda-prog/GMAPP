@@ -25,7 +25,7 @@ function normalizeOptionalText(value: string | undefined) {
 
 function isAllowedImageValue(value: string) {
   if (value.startsWith("data:image/")) {
-    return value.length <= 350_000;
+    return value.length <= 1_500_000;
   }
 
   try {

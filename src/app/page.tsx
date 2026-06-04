@@ -481,6 +481,7 @@ export default async function Home({ searchParams }: HomeProps) {
     selectedAccount,
     activeFolder,
     activeLabel,
+    !params.settings,
   );
   const visibleGmailStatus =
     params.gmail === "missing-config" && accounts.length > 0

@@ -36,6 +36,24 @@ const defaults = {
   theme: "light",
 };
 
+type AppPreferenceValues = typeof defaults;
+
+function mergePreferences(
+  localPreferences: AppPreferenceValues,
+  remotePreferences: AppPreferenceValues,
+) {
+  return {
+    appName:
+      remotePreferences.appName !== defaults.appName ||
+      localPreferences.appName === defaults.appName
+        ? remotePreferences.appName
+        : localPreferences.appName,
+    appLogoUrl: remotePreferences.appLogoUrl || localPreferences.appLogoUrl,
+    faviconUrl: remotePreferences.faviconUrl || localPreferences.faviconUrl,
+    theme: remotePreferences.theme || localPreferences.theme,
+  };
+}
+
 function readFileAsDataUrl(file: File) {
   return new Promise<string>((resolve) => {
     const reader = new FileReader();
@@ -77,7 +95,11 @@ export function SettingsPanel({
       const preferences = await fetch("/api/preferences", { cache: "no-store" })
         .then((response) =>
           response.ok
-            ? (response.json() as Promise<typeof localPreferences>)
+            ? response
+                .json()
+                .then((remotePreferences: AppPreferenceValues) =>
+                  mergePreferences(localPreferences, remotePreferences),
+                )
             : localPreferences,
         )
         .catch(() => localPreferences);
