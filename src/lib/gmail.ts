@@ -342,10 +342,30 @@ async function getGmailConnectionRow(account: string) {
     return null;
   }
 
-  const { data, error } = await supabase
+  const queryWithCustomFields = await supabase
     .from("gmail_connections")
     .select(
       "email_address, provider, messages_total, threads_total, history_id, sort_order, display_name, logo_url, encrypted_payload, connected_at, updated_at",
+    )
+    .eq("email_address", account)
+    .single();
+
+  if (!queryWithCustomFields.error) {
+    return queryWithCustomFields.data as GmailConnectionRow;
+  }
+
+  if (
+    !queryWithCustomFields.error.message.includes("sort_order") &&
+    !queryWithCustomFields.error.message.includes("display_name") &&
+    !queryWithCustomFields.error.message.includes("logo_url")
+  ) {
+    throw new Error(queryWithCustomFields.error.message);
+  }
+
+  const { data, error } = await supabase
+    .from("gmail_connections")
+    .select(
+      "email_address, provider, messages_total, threads_total, history_id, encrypted_payload, connected_at, updated_at",
     )
     .eq("email_address", account)
     .single();
