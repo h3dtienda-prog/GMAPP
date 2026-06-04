@@ -9,6 +9,16 @@ type PreferencesBody = {
   appLogoUrl?: string;
   faviconUrl?: string;
   theme?: string;
+  lightBackground?: string;
+  lightSurface?: string;
+  lightSidebar?: string;
+  lightAccent?: string;
+  lightButton?: string;
+  darkBackground?: string;
+  darkSurface?: string;
+  darkSidebar?: string;
+  darkAccent?: string;
+  darkButton?: string;
 };
 
 const defaults = {
@@ -17,6 +27,16 @@ const defaults = {
   appLogoUrl: "",
   faviconUrl: "",
   theme: "light",
+  lightBackground: "#f6f8fc",
+  lightSurface: "#ffffff",
+  lightSidebar: "#f6f8fc",
+  lightAccent: "#0b57d0",
+  lightButton: "#c2e7ff",
+  darkBackground: "#1f1f1f",
+  darkSurface: "#202124",
+  darkSidebar: "#1f1f1f",
+  darkAccent: "#8ab4f8",
+  darkButton: "#2d5f7a",
 };
 
 function normalizeOptionalText(value: string | undefined) {
@@ -39,8 +59,64 @@ function isAllowedImageValue(value: string) {
   }
 }
 
+function normalizeColor(value: string | undefined, fallback: string) {
+  const trimmed = value?.trim();
+
+  return trimmed && /^#[0-9a-fA-F]{6}$/.test(trimmed) ? trimmed : fallback;
+}
+
+function mapPreferenceRow(data: {
+  app_name?: string | null;
+  app_title?: string | null;
+  app_logo_url?: string | null;
+  favicon_url?: string | null;
+  theme?: string | null;
+  light_background?: string | null;
+  light_surface?: string | null;
+  light_sidebar?: string | null;
+  light_accent?: string | null;
+  light_button?: string | null;
+  dark_background?: string | null;
+  dark_surface?: string | null;
+  dark_sidebar?: string | null;
+  dark_accent?: string | null;
+  dark_button?: string | null;
+}) {
+  return {
+    appName: data.app_name ?? defaults.appName,
+    appTitle: data.app_title ?? defaults.appTitle,
+    appLogoUrl: data.app_logo_url ?? defaults.appLogoUrl,
+    faviconUrl: data.favicon_url ?? defaults.faviconUrl,
+    theme: data.theme ?? defaults.theme,
+    lightBackground: data.light_background ?? defaults.lightBackground,
+    lightSurface: data.light_surface ?? defaults.lightSurface,
+    lightSidebar: data.light_sidebar ?? defaults.lightSidebar,
+    lightAccent: data.light_accent ?? defaults.lightAccent,
+    lightButton: data.light_button ?? defaults.lightButton,
+    darkBackground: data.dark_background ?? defaults.darkBackground,
+    darkSurface: data.dark_surface ?? defaults.darkSurface,
+    darkSidebar: data.dark_sidebar ?? defaults.darkSidebar,
+    darkAccent: data.dark_accent ?? defaults.darkAccent,
+    darkButton: data.dark_button ?? defaults.darkButton,
+  };
+}
+
 function isMissingAppTitleColumn(message: string) {
-  return message.toLowerCase().includes("app_title");
+  const lowerMessage = message.toLowerCase();
+
+  return (
+    lowerMessage.includes("app_title") ||
+    lowerMessage.includes("light_background") ||
+    lowerMessage.includes("light_surface") ||
+    lowerMessage.includes("light_sidebar") ||
+    lowerMessage.includes("light_accent") ||
+    lowerMessage.includes("light_button") ||
+    lowerMessage.includes("dark_background") ||
+    lowerMessage.includes("dark_surface") ||
+    lowerMessage.includes("dark_sidebar") ||
+    lowerMessage.includes("dark_accent") ||
+    lowerMessage.includes("dark_button")
+  );
 }
 
 export async function GET() {
@@ -52,7 +128,9 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from("app_preferences")
-    .select("app_name, app_title, app_logo_url, favicon_url, theme")
+    .select(
+      "app_name, app_title, app_logo_url, favicon_url, theme, light_background, light_surface, light_sidebar, light_accent, light_button, dark_background, dark_surface, dark_sidebar, dark_accent, dark_button",
+    )
     .eq("id", "default")
     .maybeSingle();
 
@@ -67,26 +145,14 @@ export async function GET() {
       return NextResponse.json(defaults);
     }
 
-    return NextResponse.json({
-      appName: fallbackData.app_name ?? defaults.appName,
-      appTitle: defaults.appTitle,
-      appLogoUrl: fallbackData.app_logo_url ?? defaults.appLogoUrl,
-      faviconUrl: fallbackData.favicon_url ?? defaults.faviconUrl,
-      theme: fallbackData.theme ?? defaults.theme,
-    });
+    return NextResponse.json(mapPreferenceRow(fallbackData));
   }
 
   if (error || !data) {
     return NextResponse.json(defaults);
   }
 
-  return NextResponse.json({
-    appName: data.app_name ?? defaults.appName,
-    appTitle: data.app_title ?? defaults.appTitle,
-    appLogoUrl: data.app_logo_url ?? defaults.appLogoUrl,
-    faviconUrl: data.favicon_url ?? defaults.faviconUrl,
-    theme: data.theme ?? defaults.theme,
-  });
+  return NextResponse.json(mapPreferenceRow(data));
 }
 
 export async function POST(request: NextRequest) {
@@ -132,6 +198,19 @@ export async function POST(request: NextRequest) {
     app_logo_url: appLogoUrl,
     favicon_url: faviconUrl,
     theme,
+    light_background: normalizeColor(
+      body.lightBackground,
+      defaults.lightBackground,
+    ),
+    light_surface: normalizeColor(body.lightSurface, defaults.lightSurface),
+    light_sidebar: normalizeColor(body.lightSidebar, defaults.lightSidebar),
+    light_accent: normalizeColor(body.lightAccent, defaults.lightAccent),
+    light_button: normalizeColor(body.lightButton, defaults.lightButton),
+    dark_background: normalizeColor(body.darkBackground, defaults.darkBackground),
+    dark_surface: normalizeColor(body.darkSurface, defaults.darkSurface),
+    dark_sidebar: normalizeColor(body.darkSidebar, defaults.darkSidebar),
+    dark_accent: normalizeColor(body.darkAccent, defaults.darkAccent),
+    dark_button: normalizeColor(body.darkButton, defaults.darkButton),
     updated_at: updatedAt,
   };
   const { error } = await supabase

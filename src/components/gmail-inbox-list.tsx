@@ -280,6 +280,7 @@ export function GmailInboxList({
             <>
               <Link
                 href={currentHref}
+                prefetch={false}
                 className="grid size-8 place-items-center rounded-full hover:bg-[#f1f3f4] dark:hover:bg-[#2b2c2f]"
                 aria-label="Refrescar"
                 title="Refrescar"
@@ -297,18 +298,21 @@ export function GmailInboxList({
                 <div className="absolute left-0 z-10 mt-2 w-56 rounded-xl border border-[#dadce0] bg-white p-2 text-sm shadow-lg dark:border-[#3c4043] dark:bg-[#202124]">
                   <Link
                     href={tabHrefs.all}
+                    prefetch={false}
                     className="block rounded-lg px-3 py-2 hover:bg-[#f1f3f4] dark:text-[#e8eaed] dark:hover:bg-[#2b2c2f]"
                   >
                     Ver todos
                   </Link>
                   <Link
                     href={tabHrefs.unread}
+                    prefetch={false}
                     className="block rounded-lg px-3 py-2 hover:bg-[#f1f3f4] dark:text-[#e8eaed] dark:hover:bg-[#2b2c2f]"
                   >
                     No leidos
                   </Link>
                   <Link
                     href={tabHrefs.important}
+                    prefetch={false}
                     className="block rounded-lg px-3 py-2 hover:bg-[#f1f3f4] dark:text-[#e8eaed] dark:hover:bg-[#2b2c2f]"
                   >
                     Importantes
@@ -332,6 +336,7 @@ export function GmailInboxList({
           <Link
             key={item.id}
             href={tabHrefs[item.id]}
+            prefetch={false}
             className={`relative flex h-16 items-center gap-3 px-6 text-sm ${
               tab === item.id
                 ? "font-semibold text-[#0b57d0] dark:text-[#8ab4f8]"
@@ -385,14 +390,16 @@ export function GmailInboxList({
                 >
                   <Star size={16} />
                 </ActionForm>
-                <a
+                <Link
                   href={buildMessageHref(message, selectedAccount)}
+                  prefetch={false}
                   className="truncate"
                 >
                   {message.sender}
-                </a>
-                <a
+                </Link>
+                <Link
                   href={buildMessageHref(message, selectedAccount)}
+                  prefetch={false}
                   className="min-w-0 truncate text-[#5f6368] dark:text-[#bdc1c6]"
                 >
                   <strong className="text-[#202124] dark:text-[#e8eaed]">{message.subject}</strong>
@@ -401,7 +408,7 @@ export function GmailInboxList({
                   <span className="ml-2 rounded-full bg-[#e6f4ea] px-2 py-0.5 text-xs font-semibold text-[#137333]">
                     {accountLabel}
                   </span>
-                </a>
+                </Link>
                 <div className="flex items-center justify-end gap-2">
                   <MoveToLabelMenu
                     labels={labels}

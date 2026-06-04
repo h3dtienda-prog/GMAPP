@@ -343,14 +343,15 @@ function GmailMessageReader({
     <article className="min-h-0 flex-1 rounded-t-3xl bg-white dark:bg-[#1f1f1f]">
       <div className="flex h-14 items-center justify-between border-b border-[#e0e0e0] px-5 text-[#5f6368] dark:border-[#3c4043] dark:text-[#bdc1c6]">
         <div className="flex items-center gap-2">
-          <a
+          <Link
             href={backHref}
+            prefetch={false}
             className="grid size-10 place-items-center rounded-full hover:bg-[#f1f3f4] dark:hover:bg-[#2b2c2f]"
             aria-label="Volver"
             title="Volver"
           >
             <ChevronLeft size={20} />
-          </a>
+          </Link>
           <MessageActionForm
             action="archive"
             account={message.account}
@@ -653,7 +654,7 @@ export default async function Home({ searchParams }: HomeProps) {
     : unifiedFolders;
 
   return (
-    <main className="min-h-screen bg-[#f6f8fc] text-[#202124] dark:bg-[#1f1f1f] dark:text-[#e8eaed]">
+    <main className="mails-app-shell min-h-screen bg-[#f6f8fc] text-[#202124] dark:bg-[#1f1f1f] dark:text-[#e8eaed]">
       <div className="grid min-h-screen grid-cols-1 lg:grid-cols-[var(--sidebar-width,280px)_minmax(0,1fr)]">
         <aside className="relative max-h-screen overflow-y-auto bg-[#f6f8fc] px-3 py-4 dark:bg-[#1f1f1f] lg:sticky lg:top-0">
           <div className="flex items-start justify-between gap-3 px-2">
@@ -671,9 +672,10 @@ export default async function Home({ searchParams }: HomeProps) {
               const Icon = folder.icon;
 
               return (
-                <a
+                <Link
                   key={folder.name}
                   href={folder.href}
+                  prefetch={false}
                   className={`flex h-9 items-center justify-between rounded-r-full px-4 text-sm ${
                     folder.active
                       ? "bg-[#d3e3fd] font-semibold text-[#041e49] dark:bg-[#394457] dark:text-[#e8f0fe]"
@@ -687,7 +689,7 @@ export default async function Home({ searchParams }: HomeProps) {
                   {folder.count > 0 ? (
                     <span className="text-xs">{folder.count}</span>
                   ) : null}
-                </a>
+                </Link>
               );
             })}
           </nav>
@@ -718,9 +720,10 @@ export default async function Home({ searchParams }: HomeProps) {
                   const Icon = folder.icon;
 
                   return (
-                    <a
+                    <Link
                       key={folder.name}
                       href={folder.href}
+                      prefetch={false}
                       className={`flex h-9 items-center justify-between rounded-r-full px-4 text-sm ${
                         folder.active
                           ? "bg-[#d3e3fd] font-semibold text-[#041e49] dark:bg-[#394457] dark:text-[#e8f0fe]"
@@ -734,7 +737,7 @@ export default async function Home({ searchParams }: HomeProps) {
                       {folder.count > 0 ? (
                         <span className="text-xs">{folder.count}</span>
                       ) : null}
-                    </a>
+                    </Link>
                   );
                 })}
               </nav>
@@ -752,12 +755,13 @@ export default async function Home({ searchParams }: HomeProps) {
                       const count = label.unreadTotal ?? 0;
 
                       return (
-                        <a
+                        <Link
                           key={label.id}
                           href={buildListHref({
                             account: selectedAccount,
                             label: label.id,
                           })}
+                          prefetch={false}
                           className={`flex h-8 items-center justify-between gap-3 rounded-r-full text-sm ${
                             activeLabel === label.id
                               ? "font-semibold text-[#0b57d0] dark:text-[#8ab4f8]"
@@ -773,7 +777,7 @@ export default async function Home({ searchParams }: HomeProps) {
                               {count.toLocaleString("es")}
                             </span>
                           ) : null}
-                        </a>
+                        </Link>
                       );
                     })
                   ) : (

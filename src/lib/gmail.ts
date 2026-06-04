@@ -96,6 +96,41 @@ export type GmailDashboardLabel = {
 };
 
 type GmailMailbox = "inbox" | "unread" | "important" | "sent" | "archive" | "followups";
+type CacheEntry<T> = {
+  expiresAt: number;
+  value: T;
+};
+
+const gmailCache = new Map<string, CacheEntry<unknown>>();
+const gmailCacheTtlMs = 20_000;
+
+function readGmailCache<T>(key: string) {
+  const cached = gmailCache.get(key) as CacheEntry<T> | undefined;
+
+  if (!cached || cached.expiresAt < Date.now()) {
+    gmailCache.delete(key);
+    return null;
+  }
+
+  return cached.value;
+}
+
+function writeGmailCache<T>(key: string, value: T) {
+  gmailCache.set(key, {
+    expiresAt: Date.now() + gmailCacheTtlMs,
+    value,
+  });
+
+  return value;
+}
+
+function clearGmailCacheForAccount(account: string) {
+  for (const key of gmailCache.keys()) {
+    if (key.includes(`:${account}`)) {
+      gmailCache.delete(key);
+    }
+  }
+}
 
 export function getGoogleOAuthConfig(origin?: string) {
   const clientId = process.env.GOOGLE_CLIENT_ID;
@@ -287,8 +322,13 @@ export async function getGmailDashboardData(
         );
       }
 
+      const accountLabels = await getCachedGmailLabels(
+        row.email_address,
+        tokens.access_token,
+      );
+
       messages.push(...recentMessages);
-      labels.push(...(await getGmailLabels(row.email_address, tokens.access_token)));
+      labels.push(...accountLabels);
 
       if (tokens.access_token !== payload.tokens.access_token) {
         await storeEncryptedGmailConnection(payload.profile, tokens);
@@ -362,6 +402,8 @@ export async function performGmailMessageAction({
   if (tokens.access_token !== payload.tokens.access_token) {
     await storeEncryptedGmailConnection(payload.profile, tokens);
   }
+
+  clearGmailCacheForAccount(account);
 }
 
 async function getGmailConnectionRow(account: string) {
@@ -553,6 +595,19 @@ async function getRecentGmailMessages(
   selectedLabelId?: string,
   maxResults = 25,
 ) {
+  const cacheKey = [
+    "messages",
+    account,
+    mailbox,
+    selectedLabelId ?? "none",
+    maxResults,
+  ].join(":");
+  const cachedMessages = readGmailCache<GmailDashboardMessage[]>(cacheKey);
+
+  if (cachedMessages) {
+    return cachedMessages;
+  }
+
   let messageIds = await listRecentGmailMessageIds(
     accessToken,
     selectedLabelId ? { labelId: selectedLabelId } : getMailboxListOptions(mailbox),
@@ -563,9 +618,8 @@ async function getRecentGmailMessages(
     messageIds = await listRecentGmailMessageIds(accessToken, undefined, maxResults);
   }
 
-  const messages: GmailDashboardMessage[] = [];
-
-  for (const message of messageIds) {
+  const messages = await Promise.all(
+    messageIds.map(async (message) => {
     const response = await fetch(
       `https://gmail.googleapis.com/gmail/v1/users/me/messages/${message.id}?` +
         new URLSearchParams({
@@ -604,7 +658,7 @@ async function getRecentGmailMessages(
     const date = headers.get("date");
     const from = headers.get("from") ?? "Remitente";
 
-    messages.push({
+    return {
       id: `${account}:${data.id}`,
       gmailId: data.id,
       sender: cleanEmailName(from),
@@ -618,10 +672,11 @@ async function getRecentGmailMessages(
       unread: data.labelIds?.includes("UNREAD") ?? false,
       attachment: data.labelIds?.includes("SENT") ? false : false,
       to: headers.get("to"),
-    });
-  }
+    };
+    }),
+  );
 
-  return messages;
+  return writeGmailCache(cacheKey, messages);
 }
 
 function getMailboxListOptions(mailbox: GmailMailbox) {
@@ -723,6 +778,17 @@ async function getGmailLabels(account: string, accessToken: string) {
       unreadTotal: label.messagesUnread,
       account,
     }));
+}
+
+async function getCachedGmailLabels(account: string, accessToken: string) {
+  const cacheKey = `labels:${account}`;
+  const cachedLabels = readGmailCache<GmailDashboardLabel[]>(cacheKey);
+
+  if (cachedLabels) {
+    return cachedLabels;
+  }
+
+  return writeGmailCache(cacheKey, await getGmailLabels(account, accessToken));
 }
 
 export async function storeEncryptedGmailConnection(

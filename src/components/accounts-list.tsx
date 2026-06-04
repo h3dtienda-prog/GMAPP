@@ -239,6 +239,7 @@ export function AccountsList({
               </button>
               <Link
                 href={buildAccountHref(account.address)}
+                prefetch={false}
                 className="relative shrink-0"
               >
                 {account.logoUrl ? (
@@ -261,6 +262,7 @@ export function AccountsList({
               <div className="min-w-0 flex-1">
                 <Link
                   href={buildAccountHref(account.address)}
+                  prefetch={false}
                   className="block truncate text-sm font-semibold text-[#202124] hover:text-[#174ea6] dark:text-[#e8eaed] dark:hover:text-[#8ab4f8]"
                 >
                   {account.displayName}
@@ -311,6 +313,7 @@ export function AccountsList({
                         <Link
                           key={label.id}
                           href={buildAccountHref(account.address, label.id)}
+                          prefetch={false}
                           className={`flex h-8 items-center justify-between gap-2 rounded-r-full px-2 text-xs ${
                             activeLabel === label.id
                               ? "bg-[#d3e3fd] font-semibold text-[#041e49] dark:bg-[#253858] dark:text-[#d3e3fd]"

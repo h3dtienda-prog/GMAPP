@@ -4,6 +4,21 @@
 :root {
   --background: #f4f1eb;
   --foreground: #202124;
+  --mail-light-bg: #f6f8fc;
+  --mail-light-surface: #ffffff;
+  --mail-light-sidebar: #f6f8fc;
+  --mail-light-accent: #0b57d0;
+  --mail-light-button: #c2e7ff;
+  --mail-dark-bg: #1f1f1f;
+  --mail-dark-surface: #202124;
+  --mail-dark-sidebar: #1f1f1f;
+  --mail-dark-accent: #8ab4f8;
+  --mail-dark-button: #2d5f7a;
+  --mail-bg: var(--mail-light-bg);
+  --mail-surface: var(--mail-light-surface);
+  --mail-sidebar: var(--mail-light-sidebar);
+  --mail-accent: var(--mail-light-accent);
+  --mail-button: var(--mail-light-button);
   --sidebar-width: 280px;
   --font-sans-system: Inter, ui-sans-serif, system-ui, -apple-system,
     BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -13,6 +28,11 @@
 :root.dark {
   --background: #1f1f1f;
   --foreground: #e8eaed;
+  --mail-bg: var(--mail-dark-bg);
+  --mail-surface: var(--mail-dark-surface);
+  --mail-sidebar: var(--mail-dark-sidebar);
+  --mail-accent: var(--mail-dark-accent);
+  --mail-button: var(--mail-dark-button);
 }
 
 @theme inline {
@@ -97,4 +117,47 @@ input:focus-visible {
 .dark select {
   color: #e8eaed;
   background-color: #303134;
+}
+
+.mails-app-shell,
+.mails-app-shell .bg-\[\#f6f8fc\],
+.mails-app-shell .bg-\[\#f8fafd\],
+.mails-app-shell .bg-\[\#f2f6fc\] {
+  background-color: var(--mail-bg) !important;
+}
+
+.mails-app-shell aside,
+.mails-app-shell aside.bg-\[\#f6f8fc\] {
+  background-color: var(--mail-sidebar) !important;
+}
+
+.mails-app-shell .bg-white,
+.mails-app-shell .bg-\[\#fffaf1\] {
+  background-color: var(--mail-surface) !important;
+}
+
+.mails-app-shell .bg-\[\#c2e7ff\] {
+  background-color: var(--mail-button) !important;
+}
+
+.mails-app-shell .bg-\[\#d3e3fd\],
+.mails-app-shell .bg-\[\#0b57d0\],
+.mails-app-shell .bg-\[\#1a73e8\] {
+  background-color: var(--mail-accent) !important;
+}
+
+.mails-app-shell .border-\[\#1a73e8\],
+.mails-app-shell .border-\[\#0b57d0\] {
+  border-color: var(--mail-accent) !important;
+}
+
+.mails-app-shell .text-\[\#0b57d0\],
+.mails-app-shell .text-\[\#174ea6\],
+.mails-app-shell .text-\[\#1a73e8\] {
+  color: var(--mail-accent) !important;
+}
+
+.mails-app-shell input[type="checkbox"],
+.mails-app-shell input[type="radio"] {
+  accent-color: var(--mail-accent);
 }

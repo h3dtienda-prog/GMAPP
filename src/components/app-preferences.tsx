@@ -12,6 +12,16 @@ const defaults = {
   appLogoUrl: "",
   faviconUrl: "",
   theme: "light",
+  lightBackground: "#f6f8fc",
+  lightSurface: "#ffffff",
+  lightSidebar: "#f6f8fc",
+  lightAccent: "#0b57d0",
+  lightButton: "#c2e7ff",
+  darkBackground: "#1f1f1f",
+  darkSurface: "#202124",
+  darkSidebar: "#1f1f1f",
+  darkAccent: "#8ab4f8",
+  darkButton: "#2d5f7a",
 };
 
 type AppPreferenceValues = typeof defaults;
@@ -32,6 +42,21 @@ function applyFavicon(faviconUrl: string) {
   favicon.href = faviconUrl || "/favicon.ico";
 }
 
+function applyCustomColors(preferences: AppPreferenceValues) {
+  const root = document.documentElement;
+
+  root.style.setProperty("--mail-light-bg", preferences.lightBackground);
+  root.style.setProperty("--mail-light-surface", preferences.lightSurface);
+  root.style.setProperty("--mail-light-sidebar", preferences.lightSidebar);
+  root.style.setProperty("--mail-light-accent", preferences.lightAccent);
+  root.style.setProperty("--mail-light-button", preferences.lightButton);
+  root.style.setProperty("--mail-dark-bg", preferences.darkBackground);
+  root.style.setProperty("--mail-dark-surface", preferences.darkSurface);
+  root.style.setProperty("--mail-dark-sidebar", preferences.darkSidebar);
+  root.style.setProperty("--mail-dark-accent", preferences.darkAccent);
+  root.style.setProperty("--mail-dark-button", preferences.darkButton);
+}
+
 function readPreferences() {
   return {
     appName: window.localStorage.getItem("mails-app-name") ?? defaults.appName,
@@ -43,6 +68,36 @@ function readPreferences() {
       window.localStorage.getItem("mails-app-favicon-url") ??
       defaults.faviconUrl,
     theme: window.localStorage.getItem("mails-app-theme") ?? defaults.theme,
+    lightBackground:
+      window.localStorage.getItem("mails-color-light-background") ??
+      defaults.lightBackground,
+    lightSurface:
+      window.localStorage.getItem("mails-color-light-surface") ??
+      defaults.lightSurface,
+    lightSidebar:
+      window.localStorage.getItem("mails-color-light-sidebar") ??
+      defaults.lightSidebar,
+    lightAccent:
+      window.localStorage.getItem("mails-color-light-accent") ??
+      defaults.lightAccent,
+    lightButton:
+      window.localStorage.getItem("mails-color-light-button") ??
+      defaults.lightButton,
+    darkBackground:
+      window.localStorage.getItem("mails-color-dark-background") ??
+      defaults.darkBackground,
+    darkSurface:
+      window.localStorage.getItem("mails-color-dark-surface") ??
+      defaults.darkSurface,
+    darkSidebar:
+      window.localStorage.getItem("mails-color-dark-sidebar") ??
+      defaults.darkSidebar,
+    darkAccent:
+      window.localStorage.getItem("mails-color-dark-accent") ??
+      defaults.darkAccent,
+    darkButton:
+      window.localStorage.getItem("mails-color-dark-button") ??
+      defaults.darkButton,
   };
 }
 
@@ -70,6 +125,18 @@ async function readRemotePreferences() {
     appLogoUrl: remotePreferences.appLogoUrl || localPreferences.appLogoUrl,
     faviconUrl: remotePreferences.faviconUrl || localPreferences.faviconUrl,
     theme: remotePreferences.theme || localPreferences.theme,
+    lightBackground:
+      remotePreferences.lightBackground || localPreferences.lightBackground,
+    lightSurface: remotePreferences.lightSurface || localPreferences.lightSurface,
+    lightSidebar: remotePreferences.lightSidebar || localPreferences.lightSidebar,
+    lightAccent: remotePreferences.lightAccent || localPreferences.lightAccent,
+    lightButton: remotePreferences.lightButton || localPreferences.lightButton,
+    darkBackground:
+      remotePreferences.darkBackground || localPreferences.darkBackground,
+    darkSurface: remotePreferences.darkSurface || localPreferences.darkSurface,
+    darkSidebar: remotePreferences.darkSidebar || localPreferences.darkSidebar,
+    darkAccent: remotePreferences.darkAccent || localPreferences.darkAccent,
+    darkButton: remotePreferences.darkButton || localPreferences.darkButton,
   };
 }
 
@@ -88,6 +155,7 @@ export function AppPreferences() {
       document.title = `${nextPreferences.appName} - ${nextPreferences.appTitle}`;
       applyTheme(nextPreferences.theme);
       applyFavicon(nextPreferences.faviconUrl);
+      applyCustomColors(nextPreferences);
     }
 
     window.requestAnimationFrame(() => {
@@ -107,6 +175,46 @@ export function AppPreferences() {
             nextPreferences.faviconUrl,
           );
           window.localStorage.setItem("mails-app-theme", nextPreferences.theme);
+          window.localStorage.setItem(
+            "mails-color-light-background",
+            nextPreferences.lightBackground,
+          );
+          window.localStorage.setItem(
+            "mails-color-light-surface",
+            nextPreferences.lightSurface,
+          );
+          window.localStorage.setItem(
+            "mails-color-light-sidebar",
+            nextPreferences.lightSidebar,
+          );
+          window.localStorage.setItem(
+            "mails-color-light-accent",
+            nextPreferences.lightAccent,
+          );
+          window.localStorage.setItem(
+            "mails-color-light-button",
+            nextPreferences.lightButton,
+          );
+          window.localStorage.setItem(
+            "mails-color-dark-background",
+            nextPreferences.darkBackground,
+          );
+          window.localStorage.setItem(
+            "mails-color-dark-surface",
+            nextPreferences.darkSurface,
+          );
+          window.localStorage.setItem(
+            "mails-color-dark-sidebar",
+            nextPreferences.darkSidebar,
+          );
+          window.localStorage.setItem(
+            "mails-color-dark-accent",
+            nextPreferences.darkAccent,
+          );
+          window.localStorage.setItem(
+            "mails-color-dark-button",
+            nextPreferences.darkButton,
+          );
           syncPreferences();
         })
         .catch(syncPreferences);
@@ -122,6 +230,7 @@ export function AppPreferences() {
     <div className="min-w-0 flex-1">
       <Link
         href="/"
+        prefetch={false}
         className="flex min-w-0 items-center gap-3 rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#1a73e8]"
         aria-label="Ir a Bandeja unificada"
         title="Ir a Bandeja unificada"
