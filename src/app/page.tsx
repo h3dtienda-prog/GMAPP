@@ -72,6 +72,13 @@ function getGmailStatus(searchParams: Awaited<HomeProps["searchParams"]>) {
   }
 
   if (searchParams.gmail === "error") {
+    if (searchParams.reason?.includes("sin permisos para modificar correos")) {
+      return {
+        title: "Faltan permisos de Gmail",
+        text: searchParams.reason,
+      };
+    }
+
     return {
       title: "Google no completo la conexion",
       text: searchParams.reason ?? "Revisa la configuracion OAuth y prueba otra vez.",

@@ -327,6 +327,13 @@ export async function performGmailMessageAction({
 
   if (!response.ok) {
     const body = await response.text();
+
+    if (isInsufficientGoogleScopeResponse(body)) {
+      throw new Error(
+        `La cuenta ${account} fue conectada sin permisos para modificar correos. Reconectala con el boton Conectar Gmail y acepta los permisos de Gmail.`,
+      );
+    }
+
     throw new Error(`Gmail action failed: ${body}`);
   }
 
@@ -464,6 +471,14 @@ function isInvalidGoogleCredentialsError(error: unknown) {
     error.message.includes("Invalid Credentials") ||
     error.message.includes("UNAUTHENTICATED") ||
     error.message.includes("\"code\": 401")
+  );
+}
+
+function isInsufficientGoogleScopeResponse(body: string) {
+  return (
+    body.includes("ACCESS_TOKEN_SCOPE_INSUFFICIENT") ||
+    body.includes("insufficientPermissions") ||
+    body.includes("Request had insufficient authentication scopes")
   );
 }
 
