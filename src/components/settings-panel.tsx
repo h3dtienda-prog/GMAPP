@@ -5,6 +5,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ImageUp, MonitorCog, Palette, Save, UsersRound } from "lucide-react";
+import { AccountSettingsEditor } from "@/components/account-settings-editor";
 import type { GmailDashboardAccount } from "@/lib/gmail";
 
 type SettingsPanelProps = {
@@ -225,33 +226,7 @@ export function SettingsPanel({
           ) : null}
 
           {activeSection === "accounts" ? (
-            <div className="max-w-3xl rounded-2xl border border-[#d8d2c6] p-5">
-              <h3 className="text-lg font-semibold">Cuentas conectadas</h3>
-              <p className="mt-2 text-sm text-[#5f6368]">
-                Edita el nombre y logo de cada cuenta desde la tarjeta de la
-                barra izquierda. Los cambios se guardan en Supabase.
-              </p>
-              <div className="mt-5 divide-y divide-[#d8d2c6]">
-                {accounts.map((account) => (
-                  <div
-                    key={account.address}
-                    className="flex items-center justify-between gap-4 py-3"
-                  >
-                    <div className="min-w-0">
-                      <p className="truncate font-semibold">
-                        {account.displayName}
-                      </p>
-                      <p className="truncate text-sm text-[#5f6368]">
-                        {account.address}
-                      </p>
-                    </div>
-                    <span className="shrink-0 rounded-full bg-[#e6f4ea] px-3 py-1 text-xs font-semibold text-[#137333]">
-                      {account.status}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <AccountSettingsEditor accounts={accounts} />
           ) : null}
 
           {activeSection === "layout" ? (

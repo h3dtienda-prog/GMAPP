@@ -67,6 +67,19 @@ export async function POST(request: NextRequest) {
     .eq("email_address", account);
 
   if (error) {
+    if (
+      error.message.includes("display_name") ||
+      error.message.includes("logo_url")
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "Falta aplicar la migracion de Supabase para display_name y logo_url.",
+        },
+        { status: 409 },
+      );
+    }
+
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 

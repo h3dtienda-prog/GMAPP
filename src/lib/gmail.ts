@@ -417,31 +417,14 @@ async function refreshGmailAccessToken(refreshToken: string) {
 }
 
 async function getRecentGmailMessages(account: string, accessToken: string) {
-  const listResponse = await fetch(
-    "https://gmail.googleapis.com/gmail/v1/users/me/messages?" +
-      new URLSearchParams({
-        labelIds: "INBOX",
-        maxResults: "10",
-      }).toString(),
-    {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-      next: { revalidate: 60 },
-    },
-  );
+  let messageIds = await listRecentGmailMessageIds(accessToken, "INBOX");
 
-  if (!listResponse.ok) {
-    const body = await listResponse.text();
-    throw new Error(`Gmail messages request failed: ${body}`);
+  if (messageIds.length === 0) {
+    messageIds = await listRecentGmailMessageIds(accessToken);
   }
 
-  const list = (await listResponse.json()) as {
-    messages?: Array<{ id: string }>;
-  };
-
   const messages = await Promise.all(
-    (list.messages ?? []).map(async (message) => {
+    messageIds.map(async (message) => {
       const response = await fetch(
         `https://gmail.googleapis.com/gmail/v1/users/me/messages/${message.id}?` +
           new URLSearchParams({
@@ -499,6 +482,37 @@ async function getRecentGmailMessages(account: string, accessToken: string) {
   );
 
   return messages;
+}
+
+async function listRecentGmailMessageIds(accessToken: string, labelId?: string) {
+  const params = new URLSearchParams({
+    maxResults: "15",
+  });
+
+  if (labelId) {
+    params.set("labelIds", labelId);
+  }
+
+  const listResponse = await fetch(
+    `https://gmail.googleapis.com/gmail/v1/users/me/messages?${params.toString()}`,
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+      next: { revalidate: 30 },
+    },
+  );
+
+  if (!listResponse.ok) {
+    const body = await listResponse.text();
+    throw new Error(`Gmail messages request failed: ${body}`);
+  }
+
+  const list = (await listResponse.json()) as {
+    messages?: Array<{ id: string }>;
+  };
+
+  return list.messages ?? [];
 }
 
 export async function storeEncryptedGmailConnection(
