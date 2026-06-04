@@ -31,6 +31,7 @@ const sections = [
 
 const defaults = {
   appName: "MAILS",
+  appTitle: "Centro de correo",
   appLogoUrl: "",
   faviconUrl: "",
   theme: "light",
@@ -48,6 +49,11 @@ function mergePreferences(
       localPreferences.appName === defaults.appName
         ? remotePreferences.appName
         : localPreferences.appName,
+    appTitle:
+      remotePreferences.appTitle !== defaults.appTitle ||
+      localPreferences.appTitle === defaults.appTitle
+        ? remotePreferences.appTitle
+        : localPreferences.appTitle,
     appLogoUrl: remotePreferences.appLogoUrl || localPreferences.appLogoUrl,
     faviconUrl: remotePreferences.faviconUrl || localPreferences.faviconUrl,
     theme: remotePreferences.theme || localPreferences.theme,
@@ -70,6 +76,7 @@ export function SettingsPanel({
     ? section
     : "appearance";
   const [appName, setAppName] = useState(defaults.appName);
+  const [appTitle, setAppTitle] = useState(defaults.appTitle);
   const [appLogoUrl, setAppLogoUrl] = useState(defaults.appLogoUrl);
   const [faviconUrl, setFaviconUrl] = useState(defaults.faviconUrl);
   const [theme, setTheme] = useState(defaults.theme);
@@ -83,6 +90,8 @@ export function SettingsPanel({
     window.requestAnimationFrame(async () => {
       const localPreferences = {
         appName: window.localStorage.getItem("mails-app-name") ?? defaults.appName,
+        appTitle:
+          window.localStorage.getItem("mails-app-title") ?? defaults.appTitle,
         appLogoUrl:
           window.localStorage.getItem("mails-app-logo-url") ??
           defaults.appLogoUrl,
@@ -105,6 +114,7 @@ export function SettingsPanel({
         .catch(() => localPreferences);
 
       setAppName(preferences.appName);
+      setAppTitle(preferences.appTitle);
       setAppLogoUrl(preferences.appLogoUrl);
       setFaviconUrl(preferences.faviconUrl);
       setTheme(preferences.theme);
@@ -115,17 +125,19 @@ export function SettingsPanel({
     const nextName = appName.trim() || defaults.appName;
     const nextPreferences = {
       appName: nextName,
+      appTitle: appTitle.trim() || defaults.appTitle,
       appLogoUrl: appLogoUrl.trim(),
       faviconUrl: faviconUrl.trim(),
       theme,
     };
 
     window.localStorage.setItem("mails-app-name", nextName);
+    window.localStorage.setItem("mails-app-title", nextPreferences.appTitle);
     window.localStorage.setItem("mails-app-logo-url", nextPreferences.appLogoUrl);
     window.localStorage.setItem("mails-app-favicon-url", nextPreferences.faviconUrl);
     window.localStorage.setItem("mails-app-theme", theme);
     document.documentElement.classList.toggle("dark", theme === "dark");
-    document.title = `${nextName} - Centro de correo`;
+    document.title = `${nextName} - ${nextPreferences.appTitle}`;
     window.dispatchEvent(new Event("mails-preferences-updated"));
 
     const response = await fetch("/api/preferences", {
@@ -225,6 +237,15 @@ export function SettingsPanel({
                         className="mt-1 h-11 w-full rounded-md border border-[#d8d2c6] bg-white px-3 text-[#202124] outline-none"
                         value={appName}
                         onChange={(event) => setAppName(event.target.value)}
+                      />
+                    </label>
+                    <label className="block text-sm font-medium text-[#5f6368]">
+                      Titulo principal
+                      <input
+                        className="mt-1 h-11 w-full rounded-md border border-[#d8d2c6] bg-white px-3 text-[#202124] outline-none"
+                        value={appTitle}
+                        onChange={(event) => setAppTitle(event.target.value)}
+                        placeholder="Centro de correo"
                       />
                     </label>
                     <label className="flex h-11 cursor-pointer items-center justify-center gap-2 rounded-full border border-[#d8d2c6] bg-white px-4 text-sm font-semibold hover:bg-[#f8fafd]">

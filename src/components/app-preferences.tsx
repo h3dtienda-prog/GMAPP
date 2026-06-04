@@ -7,6 +7,7 @@ import { Moon, Sun } from "lucide-react";
 
 const defaults = {
   appName: "MAILS",
+  appTitle: "Centro de correo",
   appLogoUrl: "",
   faviconUrl: "",
   theme: "light",
@@ -33,6 +34,8 @@ function applyFavicon(faviconUrl: string) {
 function readPreferences() {
   return {
     appName: window.localStorage.getItem("mails-app-name") ?? defaults.appName,
+    appTitle:
+      window.localStorage.getItem("mails-app-title") ?? defaults.appTitle,
     appLogoUrl:
       window.localStorage.getItem("mails-app-logo-url") ?? defaults.appLogoUrl,
     faviconUrl:
@@ -58,6 +61,11 @@ async function readRemotePreferences() {
       localPreferences.appName === defaults.appName
         ? remotePreferences.appName
         : localPreferences.appName,
+    appTitle:
+      remotePreferences.appTitle !== defaults.appTitle ||
+      localPreferences.appTitle === defaults.appTitle
+        ? remotePreferences.appTitle
+        : localPreferences.appTitle,
     appLogoUrl: remotePreferences.appLogoUrl || localPreferences.appLogoUrl,
     faviconUrl: remotePreferences.faviconUrl || localPreferences.faviconUrl,
     theme: remotePreferences.theme || localPreferences.theme,
@@ -66,6 +74,7 @@ async function readRemotePreferences() {
 
 export function AppPreferences() {
   const [appName, setAppName] = useState(defaults.appName);
+  const [appTitle, setAppTitle] = useState(defaults.appTitle);
   const [appLogoUrl, setAppLogoUrl] = useState(defaults.appLogoUrl);
 
   useEffect(() => {
@@ -73,8 +82,9 @@ export function AppPreferences() {
       const nextPreferences = readPreferences();
 
       setAppName(nextPreferences.appName);
+      setAppTitle(nextPreferences.appTitle);
       setAppLogoUrl(nextPreferences.appLogoUrl);
-      document.title = `${nextPreferences.appName} - Centro de correo`;
+      document.title = `${nextPreferences.appName} - ${nextPreferences.appTitle}`;
       applyTheme(nextPreferences.theme);
       applyFavicon(nextPreferences.faviconUrl);
     }
@@ -83,6 +93,10 @@ export function AppPreferences() {
       void readRemotePreferences()
         .then((nextPreferences) => {
           window.localStorage.setItem("mails-app-name", nextPreferences.appName);
+          window.localStorage.setItem(
+            "mails-app-title",
+            nextPreferences.appTitle,
+          );
           window.localStorage.setItem(
             "mails-app-logo-url",
             nextPreferences.appLogoUrl,
@@ -122,7 +136,7 @@ export function AppPreferences() {
             {appName}
           </p>
           <h1 className="truncate text-2xl font-semibold text-[#202124] dark:text-[#e8eaed]">
-            Centro de correo
+            {appTitle}
           </h1>
         </div>
       </div>

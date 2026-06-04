@@ -5,6 +5,7 @@ export const runtime = "nodejs";
 
 type PreferencesBody = {
   appName?: string;
+  appTitle?: string;
   appLogoUrl?: string;
   faviconUrl?: string;
   theme?: string;
@@ -12,6 +13,7 @@ type PreferencesBody = {
 
 const defaults = {
   appName: "MAILS",
+  appTitle: "Centro de correo",
   appLogoUrl: "",
   faviconUrl: "",
   theme: "light",
@@ -24,8 +26,8 @@ function normalizeOptionalText(value: string | undefined) {
 }
 
 function isAllowedImageValue(value: string) {
-  if (value.startsWith("data:image/")) {
-    return value.length <= 1_500_000;
+  if (value.startsWith("data:")) {
+    return value.startsWith("data:image/") && value.length <= 4_000_000;
   }
 
   try {
@@ -46,7 +48,7 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from("app_preferences")
-    .select("app_name, app_logo_url, favicon_url, theme")
+    .select("app_name, app_title, app_logo_url, favicon_url, theme")
     .eq("id", "default")
     .maybeSingle();
 
@@ -56,6 +58,7 @@ export async function GET() {
 
   return NextResponse.json({
     appName: data.app_name ?? defaults.appName,
+    appTitle: data.app_title ?? defaults.appTitle,
     appLogoUrl: data.app_logo_url ?? defaults.appLogoUrl,
     faviconUrl: data.favicon_url ?? defaults.faviconUrl,
     theme: data.theme ?? defaults.theme,
@@ -78,14 +81,20 @@ export async function POST(request: NextRequest) {
 
   if (appLogoUrl && !isAllowedImageValue(appLogoUrl)) {
     return NextResponse.json(
-      { error: "El logo debe ser una imagen subida o una URL http/https." },
+      {
+        error:
+          "El logo debe ser una imagen subida menor a 4 MB o una URL http/https.",
+      },
       { status: 400 },
     );
   }
 
   if (faviconUrl && !isAllowedImageValue(faviconUrl)) {
     return NextResponse.json(
-      { error: "El icono debe ser una imagen subida o una URL http/https." },
+      {
+        error:
+          "El icono debe ser una imagen subida menor a 4 MB o una URL http/https.",
+      },
       { status: 400 },
     );
   }
@@ -95,6 +104,7 @@ export async function POST(request: NextRequest) {
     {
       id: "default",
       app_name: body.appName?.trim() || defaults.appName,
+      app_title: body.appTitle?.trim() || defaults.appTitle,
       app_logo_url: appLogoUrl,
       favicon_url: faviconUrl,
       theme,
