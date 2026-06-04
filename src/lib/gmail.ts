@@ -86,6 +86,15 @@ export type GmailDashboardMessage = {
   to?: string;
 };
 
+export type GmailDashboardLabel = {
+  id: string;
+  name: string;
+  account: string;
+  type: "system" | "user";
+};
+
+type GmailMailbox = "inbox" | "unread" | "important" | "sent" | "archive" | "followups";
+
 export function getGoogleOAuthConfig(origin?: string) {
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
@@ -185,13 +194,17 @@ export async function getGmailProfile(accessToken: string) {
   return (await response.json()) as GmailProfile;
 }
 
-export async function getGmailDashboardData(selectedAccount?: string) {
+export async function getGmailDashboardData(
+  selectedAccount?: string,
+  mailbox: GmailMailbox = "inbox",
+) {
   const supabase = getSupabaseAdminClient();
 
   if (!supabase) {
     return {
       accounts: [] as GmailDashboardAccount[],
       messages: [] as GmailDashboardMessage[],
+      labels: [] as GmailDashboardLabel[],
       error: null as string | null,
     };
   }
@@ -202,6 +215,7 @@ export async function getGmailDashboardData(selectedAccount?: string) {
     return {
       accounts: [] as GmailDashboardAccount[],
       messages: [] as GmailDashboardMessage[],
+      labels: [] as GmailDashboardLabel[],
       error: error.message,
     };
   }
@@ -227,6 +241,7 @@ export async function getGmailDashboardData(selectedAccount?: string) {
     sortOrder: row.sort_order ?? index,
   }));
   const messages: GmailDashboardMessage[] = [];
+  const labels: GmailDashboardLabel[] = [];
   const connectionErrors: string[] = [];
 
   for (const row of visibleRows) {
@@ -239,6 +254,7 @@ export async function getGmailDashboardData(selectedAccount?: string) {
         recentMessages = await getRecentGmailMessages(
           row.email_address,
           tokens.access_token,
+          mailbox,
         );
       } catch (error) {
         if (!isInvalidGoogleCredentialsError(error) || !payload.tokens.refresh_token) {
@@ -249,10 +265,12 @@ export async function getGmailDashboardData(selectedAccount?: string) {
         recentMessages = await getRecentGmailMessages(
           row.email_address,
           tokens.access_token,
+          mailbox,
         );
       }
 
       messages.push(...recentMessages);
+      labels.push(...(await getGmailLabels(row.email_address, tokens.access_token)));
 
       if (tokens.access_token !== payload.tokens.access_token) {
         await storeEncryptedGmailConnection(payload.profile, tokens);
@@ -270,6 +288,7 @@ export async function getGmailDashboardData(selectedAccount?: string) {
   return {
     accounts,
     messages,
+    labels,
     error: connectionErrors.length > 0 ? connectionErrors.join("\n") : null,
   };
 }
@@ -278,10 +297,12 @@ export async function performGmailMessageAction({
   account,
   action,
   gmailId,
+  labelId,
 }: {
   account: string;
-  action: "archive" | "star" | "unstar" | "read" | "unread";
+  action: "archive" | "star" | "unstar" | "read" | "unread" | "label";
   gmailId: string;
+  labelId?: string;
 }) {
   const row = await getGmailConnectionRow(account);
 
@@ -291,7 +312,7 @@ export async function performGmailMessageAction({
 
   const payload = decryptGmailPayload(row.encrypted_payload);
   const tokens = await ensureFreshGmailTokens(payload);
-  const labels = getLabelMutation(action);
+  const labels = getLabelMutation(action, labelId);
   const response = await fetch(
     `https://gmail.googleapis.com/gmail/v1/users/me/messages/${gmailId}/modify`,
     {
@@ -336,9 +357,20 @@ async function getGmailConnectionRow(account: string) {
   return data as GmailConnectionRow;
 }
 
-function getLabelMutation(action: "archive" | "star" | "unstar" | "read" | "unread") {
+function getLabelMutation(
+  action: "archive" | "star" | "unstar" | "read" | "unread" | "label",
+  labelId?: string,
+) {
   if (action === "archive") {
     return { removeLabelIds: ["INBOX"] };
+  }
+
+  if (action === "label") {
+    if (!labelId) {
+      throw new Error("No label was provided.");
+    }
+
+    return { addLabelIds: [labelId], removeLabelIds: ["INBOX"] };
   }
 
   if (action === "star") {
@@ -448,10 +480,17 @@ async function refreshGmailAccessToken(refreshToken: string) {
   };
 }
 
-async function getRecentGmailMessages(account: string, accessToken: string) {
-  let messageIds = await listRecentGmailMessageIds(accessToken, "INBOX");
+async function getRecentGmailMessages(
+  account: string,
+  accessToken: string,
+  mailbox: GmailMailbox,
+) {
+  let messageIds = await listRecentGmailMessageIds(
+    accessToken,
+    getMailboxListOptions(mailbox),
+  );
 
-  if (messageIds.length === 0) {
+  if (messageIds.length === 0 && mailbox === "inbox") {
     messageIds = await listRecentGmailMessageIds(accessToken);
   }
 
@@ -516,13 +555,44 @@ async function getRecentGmailMessages(account: string, accessToken: string) {
   return messages;
 }
 
-async function listRecentGmailMessageIds(accessToken: string, labelId?: string) {
+function getMailboxListOptions(mailbox: GmailMailbox) {
+  if (mailbox === "unread") {
+    return { query: "is:unread" };
+  }
+
+  if (mailbox === "important") {
+    return { labelId: "IMPORTANT" };
+  }
+
+  if (mailbox === "sent") {
+    return { labelId: "SENT" };
+  }
+
+  if (mailbox === "archive") {
+    return { query: "-in:inbox -in:sent -in:drafts" };
+  }
+
+  if (mailbox === "followups") {
+    return { query: "newer_than:30d" };
+  }
+
+  return { labelId: "INBOX" };
+}
+
+async function listRecentGmailMessageIds(
+  accessToken: string,
+  options?: { labelId?: string; query?: string },
+) {
   const params = new URLSearchParams({
-    maxResults: "15",
+    maxResults: "25",
   });
 
-  if (labelId) {
-    params.set("labelIds", labelId);
+  if (options?.labelId) {
+    params.set("labelIds", options.labelId);
+  }
+
+  if (options?.query) {
+    params.set("q", options.query);
   }
 
   const listResponse = await fetch(
@@ -545,6 +615,36 @@ async function listRecentGmailMessageIds(accessToken: string, labelId?: string) 
   };
 
   return list.messages ?? [];
+}
+
+async function getGmailLabels(account: string, accessToken: string) {
+  const response = await fetch(
+    "https://gmail.googleapis.com/gmail/v1/users/me/labels",
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+      cache: "no-store",
+    },
+  );
+
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`Gmail labels request failed: ${body}`);
+  }
+
+  const data = (await response.json()) as {
+    labels?: Array<{ id: string; name: string; type: "system" | "user" }>;
+  };
+
+  return (data.labels ?? [])
+    .filter((label) => label.type === "user")
+    .map((label) => ({
+      id: label.id,
+      name: label.name,
+      type: label.type,
+      account,
+    }));
 }
 
 export async function storeEncryptedGmailConnection(

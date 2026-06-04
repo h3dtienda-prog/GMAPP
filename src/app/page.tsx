@@ -28,11 +28,13 @@ import {
 import Link from "next/link";
 import { AccountsList } from "@/components/accounts-list";
 import { AppPreferences } from "@/components/app-preferences";
+import { HeaderIdentity } from "@/components/header-identity";
 import { SettingsPanel } from "@/components/settings-panel";
 import { SidebarResizer } from "@/components/sidebar-resizer";
 import {
   getGmailDashboardData,
   type GmailDashboardAccount,
+  type GmailDashboardLabel,
   type GmailDashboardMessage,
 } from "@/lib/gmail";
 
@@ -42,6 +44,7 @@ type HomeProps = {
   searchParams: Promise<{
     account?: string;
     email?: string;
+    folder?: string;
     gmail?: string;
     message?: string;
     q?: string;
@@ -98,10 +101,12 @@ function buildMessageHref(message: GmailDashboardMessage, account?: string) {
 
 function buildListHref({
   account,
+  folder,
   q,
   tab,
 }: {
   account?: string;
+  folder?: string;
   q?: string;
   tab?: string;
 }) {
@@ -109,6 +114,10 @@ function buildListHref({
 
   if (account) {
     params.set("account", account);
+  }
+
+  if (folder && folder !== "inbox") {
+    params.set("folder", folder);
   }
 
   if (q) {
@@ -184,11 +193,29 @@ function filterMessages(
   );
 }
 
+function getFolder(value: string | undefined) {
+  if (
+    value === "unread" ||
+    value === "important" ||
+    value === "sent" ||
+    value === "archive" ||
+    value === "followups"
+  ) {
+    return value;
+  }
+
+  return "inbox";
+}
+
 function GmailTopBar({
+  accounts,
+  folder,
   q,
   selectedAccount,
   tab,
 }: {
+  accounts: GmailDashboardAccount[];
+  folder: string;
   q: string;
   selectedAccount?: string;
   tab: string;
@@ -201,6 +228,9 @@ function GmailTopBar({
       >
         {selectedAccount ? (
           <input type="hidden" name="account" value={selectedAccount} />
+        ) : null}
+        {folder !== "inbox" ? (
+          <input type="hidden" name="folder" value={folder} />
         ) : null}
         {tab !== "primary" ? <input type="hidden" name="tab" value={tab} /> : null}
         <Search size={20} />
@@ -231,9 +261,7 @@ function GmailTopBar({
         <button className="grid size-10 place-items-center rounded-full hover:bg-[#e8eaed]">
           <Grid3X3 size={20} />
         </button>
-        <div className="grid size-9 place-items-center rounded-full bg-[#5965c7] text-sm font-semibold text-white">
-          H
-        </div>
+        <HeaderIdentity accounts={accounts} selectedAccount={selectedAccount} />
       </div>
     </header>
   );
@@ -241,11 +269,13 @@ function GmailTopBar({
 
 function GmailTabs({
   counts,
+  folder,
   q,
   selectedAccount,
   tab,
 }: {
   counts: Record<string, number>;
+  folder: string;
   q: string;
   selectedAccount?: string;
   tab: string;
@@ -263,6 +293,7 @@ function GmailTabs({
           key={item.id}
           href={buildListHref({
             account: selectedAccount,
+            folder,
             q,
             tab: item.id,
           })}
@@ -290,6 +321,8 @@ function GmailMessageList({
   accounts,
   categoryMessages,
   allCount,
+  folder,
+  labels,
   messages,
   q,
   selectedAccount,
@@ -298,6 +331,8 @@ function GmailMessageList({
   accounts: GmailDashboardAccount[];
   categoryMessages: GmailDashboardMessage[];
   allCount: number;
+  folder: string;
+  labels: GmailDashboardLabel[];
   messages: GmailDashboardMessage[];
   q: string;
   selectedAccount?: string;
@@ -314,7 +349,7 @@ function GmailMessageList({
       (message) => getMessageCategory(message) === "social",
     ).length,
   };
-  const currentHref = buildListHref({ account: selectedAccount, q, tab });
+  const currentHref = buildListHref({ account: selectedAccount, folder, q, tab });
 
   return (
     <section className="flex min-h-0 flex-1 flex-col rounded-t-3xl bg-white">
@@ -340,19 +375,19 @@ function GmailMessageList({
             </summary>
             <div className="absolute left-0 z-10 mt-2 w-44 rounded-xl border border-[#dadce0] bg-white p-2 text-sm shadow-lg">
               <Link
-                href={buildListHref({ account: selectedAccount, q, tab: "all" })}
+                href={buildListHref({ account: selectedAccount, folder, q, tab: "all" })}
                 className="block rounded-lg px-3 py-2 hover:bg-[#f1f3f4]"
               >
                 Ver todos
               </Link>
               <Link
-                href={buildListHref({ account: selectedAccount, q: "is:unread", tab })}
+                href={buildListHref({ account: selectedAccount, folder: "unread", q, tab })}
                 className="block rounded-lg px-3 py-2 hover:bg-[#f1f3f4]"
               >
                 No leidos
               </Link>
               <Link
-                href={buildListHref({ account: selectedAccount, q: "important", tab })}
+                href={buildListHref({ account: selectedAccount, folder: "important", q, tab })}
                 className="block rounded-lg px-3 py-2 hover:bg-[#f1f3f4]"
               >
                 Importantes
@@ -371,6 +406,7 @@ function GmailMessageList({
 
       <GmailTabs
         counts={counts}
+        folder={folder}
         q={q}
         selectedAccount={selectedAccount}
         tab={tab}
@@ -382,28 +418,40 @@ function GmailMessageList({
             const accountLabel = getAccountLabel(accounts, message.account);
 
             return (
-              <a
+              <div
                 key={message.id}
-                href={buildMessageHref(message, selectedAccount)}
                 className={`grid min-h-10 grid-cols-[28px_28px_minmax(120px,180px)_minmax(0,1fr)_92px] items-center gap-2 px-5 py-2 text-sm hover:shadow-[inset_1px_0_0_#dadce0,inset_-1px_0_0_#dadce0,0_1px_2px_rgba(60,64,67,.18),0_1px_3px_1px_rgba(60,64,67,.10)] ${
                   message.unread ? "bg-white font-semibold" : "bg-[#f2f6fc]"
                 }`}
               >
                 <Square size={16} className="text-[#bdc1c6]" />
                 <Star size={16} className="text-[#bdc1c6]" />
-                <span className="truncate">{message.sender}</span>
-                <span className="min-w-0 truncate text-[#5f6368]">
+                <a
+                  href={buildMessageHref(message, selectedAccount)}
+                  className="truncate"
+                >
+                  {message.sender}
+                </a>
+                <a
+                  href={buildMessageHref(message, selectedAccount)}
+                  className="min-w-0 truncate text-[#5f6368]"
+                >
                   <strong className="text-[#202124]">{message.subject}</strong>
                   {" - "}
                   {message.preview}
                   <span className="ml-2 rounded-full bg-[#e6f4ea] px-2 py-0.5 text-xs font-semibold text-[#137333]">
                     {accountLabel}
                   </span>
-                </span>
-                <span className="justify-self-end text-xs text-[#202124]">
-                  {message.time}
-                </span>
-              </a>
+                </a>
+                <div className="flex items-center justify-end gap-2">
+                  <MoveToLabelMenu
+                    labels={labels.filter((label) => label.account === message.account)}
+                    message={message}
+                    redirectTo={currentHref}
+                  />
+                  <span className="text-xs text-[#202124]">{message.time}</span>
+                </div>
+              </div>
             );
           })
         ) : (
@@ -420,13 +468,15 @@ function MessageActionForm({
   action,
   account,
   gmailId,
+  labelId,
   redirectTo,
   children,
   label,
 }: {
-  action: "archive" | "star";
+  action: "archive" | "star" | "label";
   account: string;
   gmailId: string;
+  labelId?: string;
   redirectTo: string;
   children: React.ReactNode;
   label: string;
@@ -436,6 +486,7 @@ function MessageActionForm({
       <input type="hidden" name="account" value={account} />
       <input type="hidden" name="gmailId" value={gmailId} />
       <input type="hidden" name="action" value={action} />
+      {labelId ? <input type="hidden" name="labelId" value={labelId} /> : null}
       <input type="hidden" name="redirectTo" value={redirectTo} />
       <button
         className="grid size-10 place-items-center rounded-full text-[#5f6368] hover:bg-[#f1f3f4]"
@@ -447,12 +498,54 @@ function MessageActionForm({
   );
 }
 
+function MoveToLabelMenu({
+  labels,
+  message,
+  redirectTo,
+}: {
+  labels: GmailDashboardLabel[];
+  message: GmailDashboardMessage;
+  redirectTo: string;
+}) {
+  if (labels.length === 0) {
+    return null;
+  }
+
+  return (
+    <details className="relative">
+      <summary className="grid size-8 cursor-pointer list-none place-items-center rounded-full text-[#5f6368] hover:bg-[#f1f3f4]">
+        <Tag size={16} />
+      </summary>
+      <div className="absolute right-0 z-20 mt-2 max-h-72 w-56 overflow-auto rounded-xl border border-[#dadce0] bg-white p-2 text-sm shadow-lg">
+        {labels.map((label) => (
+          <form
+            key={label.id}
+            action="/api/messages/action"
+            method="post"
+          >
+            <input type="hidden" name="account" value={message.account} />
+            <input type="hidden" name="gmailId" value={message.gmailId} />
+            <input type="hidden" name="action" value="label" />
+            <input type="hidden" name="labelId" value={label.id} />
+            <input type="hidden" name="redirectTo" value={redirectTo} />
+            <button className="block w-full truncate rounded-lg px-3 py-2 text-left hover:bg-[#f1f3f4]">
+              {label.name}
+            </button>
+          </form>
+        ))}
+      </div>
+    </details>
+  );
+}
+
 function GmailMessageReader({
   accounts,
+  labels,
   message,
   selectedAccount,
 }: {
   accounts: GmailDashboardAccount[];
+  labels: GmailDashboardLabel[];
   message: GmailDashboardMessage;
   selectedAccount?: string;
 }) {
@@ -497,6 +590,11 @@ function GmailMessageReader({
           <button className="grid size-10 place-items-center rounded-full hover:bg-[#f1f3f4]">
             <MoreVertical size={18} />
           </button>
+          <MoveToLabelMenu
+            labels={labels.filter((label) => label.account === message.account)}
+            message={message}
+            redirectTo={backHref}
+          />
         </div>
         <div className="hidden items-center gap-2 md:flex">
           <Printer size={18} />
@@ -571,10 +669,12 @@ export default async function Home({ searchParams }: HomeProps) {
   const params = await searchParams;
   const gmailStatus = getGmailStatus(params);
   const selectedAccount = params.account;
+  const activeFolder = getFolder(params.folder);
   const activeTab = params.tab ?? "primary";
   const query = params.q ?? "";
-  const { accounts, messages, error } = await getGmailDashboardData(
+  const { accounts, messages, labels, error } = await getGmailDashboardData(
     selectedAccount,
+    activeFolder,
   );
   const queryMatchedMessages = messages.filter((message) =>
     messageMatchesQuery(message, query),
@@ -593,15 +693,37 @@ export default async function Home({ searchParams }: HomeProps) {
       name: "Bandeja unificada",
       count: messages.length,
       icon: Inbox,
-      href: selectedAccount
-        ? `/?account=${encodeURIComponent(selectedAccount)}`
-        : "/",
-      active: !params.settings && !selectedMessage,
+      href: buildListHref({ account: selectedAccount, folder: "inbox" }),
+      active: !params.settings && !selectedMessage && activeFolder === "inbox",
     },
-    { name: "No leidos", count: unreadCount, icon: Reply, href: "#" },
-    { name: "Seguimientos", count: 0, icon: Clock3, href: "#" },
-    { name: "Importantes", count: importantCount, icon: Star, href: "#" },
-    { name: "Enviados", count: 0, icon: Send, href: "#" },
+    {
+      name: "No leidos",
+      count: unreadCount,
+      icon: Reply,
+      href: buildListHref({ account: selectedAccount, folder: "unread" }),
+      active: activeFolder === "unread",
+    },
+    {
+      name: "Seguimientos",
+      count: 0,
+      icon: Clock3,
+      href: buildListHref({ account: selectedAccount, folder: "followups" }),
+      active: activeFolder === "followups",
+    },
+    {
+      name: "Importantes",
+      count: importantCount,
+      icon: Star,
+      href: buildListHref({ account: selectedAccount, folder: "important" }),
+      active: activeFolder === "important",
+    },
+    {
+      name: "Enviados",
+      count: 0,
+      icon: Send,
+      href: buildListHref({ account: selectedAccount, folder: "sent" }),
+      active: activeFolder === "sent",
+    },
     { name: "Configuracion", count: 0, icon: Settings, href: "/?settings=appearance", active: Boolean(params.settings) },
   ];
 
@@ -680,6 +802,8 @@ export default async function Home({ searchParams }: HomeProps) {
 
         <section className="flex min-w-0 flex-col bg-[#f6f8fc]">
           <GmailTopBar
+            accounts={accounts}
+            folder={activeFolder}
             q={query}
             selectedAccount={selectedAccount}
             tab={activeTab}
@@ -706,6 +830,7 @@ export default async function Home({ searchParams }: HomeProps) {
           ) : selectedMessage ? (
             <GmailMessageReader
               accounts={accounts}
+              labels={labels}
               message={selectedMessage}
               selectedAccount={selectedAccount}
             />
@@ -714,6 +839,8 @@ export default async function Home({ searchParams }: HomeProps) {
               accounts={accounts}
               allCount={messages.length}
               categoryMessages={queryMatchedMessages}
+              folder={activeFolder}
+              labels={labels}
               messages={visibleMessages}
               q={query}
               selectedAccount={selectedAccount}
