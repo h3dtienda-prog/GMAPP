@@ -482,6 +482,10 @@ export default async function Home({ searchParams }: HomeProps) {
     activeFolder,
     activeLabel,
   );
+  const visibleGmailStatus =
+    params.gmail === "missing-config" && accounts.length > 0
+      ? null
+      : gmailStatus;
   const queryMatchedMessages = messages.filter((message) =>
     messageMatchesQuery(message, query),
   );
@@ -682,10 +686,10 @@ export default async function Home({ searchParams }: HomeProps) {
             tab={activeTab}
           />
 
-          {gmailStatus ? (
+          {visibleGmailStatus ? (
             <div className="mx-5 mb-3 rounded-lg border border-[#f5c2c7] bg-[#fce8e6] px-4 py-3 text-sm text-[#a50e0e]">
-              <p className="font-semibold">{gmailStatus.title}</p>
-              <p className="mt-1 break-words">{gmailStatus.text}</p>
+              <p className="font-semibold">{visibleGmailStatus.title}</p>
+              <p className="mt-1 break-words">{visibleGmailStatus.text}</p>
             </div>
           ) : null}
           {error ? (

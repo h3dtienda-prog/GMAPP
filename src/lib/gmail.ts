@@ -246,6 +246,7 @@ export async function getGmailDashboardData(
   const messages: GmailDashboardMessage[] = [];
   const labels: GmailDashboardLabel[] = [];
   const connectionErrors: string[] = [];
+  const maxMessagesPerAccount = selectedAccount ? 25 : 8;
 
   for (const row of visibleRows) {
     try {
@@ -259,6 +260,7 @@ export async function getGmailDashboardData(
           tokens.access_token,
           mailbox,
           selectedLabelId,
+          maxMessagesPerAccount,
         );
       } catch (error) {
         if (!isInvalidGoogleCredentialsError(error) || !payload.tokens.refresh_token) {
@@ -271,6 +273,7 @@ export async function getGmailDashboardData(
           tokens.access_token,
           mailbox,
           selectedLabelId,
+          maxMessagesPerAccount,
         );
       }
 
@@ -282,9 +285,13 @@ export async function getGmailDashboardData(
       }
     } catch (error) {
       console.error(error);
+      const message =
+        error instanceof Error ? error.message : "No se pudo leer Gmail.";
       connectionErrors.push(
         `${row.email_address}: ${
-          error instanceof Error ? error.message : "No se pudo leer Gmail."
+          isGoogleRateLimitErrorMessage(message)
+            ? "Gmail limito temporalmente las lecturas de esta cuenta. Espera unos minutos o abre la cuenta individualmente."
+            : message
         }`,
       );
     }
@@ -487,6 +494,15 @@ function isInsufficientGoogleScopeResponse(body: string) {
   );
 }
 
+function isGoogleRateLimitErrorMessage(message: string) {
+  return (
+    message.includes("\"code\": 429") ||
+    message.includes("rateLimitExceeded") ||
+    message.includes("RESOURCE_EXHAUSTED") ||
+    message.includes("Too many concurrent requests")
+  );
+}
+
 async function refreshGmailAccessToken(refreshToken: string) {
   const config = getGoogleOAuthConfig();
 
@@ -525,73 +541,75 @@ async function getRecentGmailMessages(
   accessToken: string,
   mailbox: GmailMailbox,
   selectedLabelId?: string,
+  maxResults = 25,
 ) {
   let messageIds = await listRecentGmailMessageIds(
     accessToken,
     selectedLabelId ? { labelId: selectedLabelId } : getMailboxListOptions(mailbox),
+    maxResults,
   );
 
   if (messageIds.length === 0 && mailbox === "inbox" && !selectedLabelId) {
-    messageIds = await listRecentGmailMessageIds(accessToken);
+    messageIds = await listRecentGmailMessageIds(accessToken, undefined, maxResults);
   }
 
-  const messages = await Promise.all(
-    messageIds.map(async (message) => {
-      const response = await fetch(
-        `https://gmail.googleapis.com/gmail/v1/users/me/messages/${message.id}?` +
-          new URLSearchParams({
-            format: "metadata",
-            metadataHeaders: "From",
-          }).toString() +
-          "&metadataHeaders=Subject&metadataHeaders=Date&metadataHeaders=To",
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-          cache: "no-store",
+  const messages: GmailDashboardMessage[] = [];
+
+  for (const message of messageIds) {
+    const response = await fetch(
+      `https://gmail.googleapis.com/gmail/v1/users/me/messages/${message.id}?` +
+        new URLSearchParams({
+          format: "metadata",
+          metadataHeaders: "From",
+        }).toString() +
+        "&metadataHeaders=Subject&metadataHeaders=Date&metadataHeaders=To",
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
         },
-      );
+        cache: "no-store",
+      },
+    );
 
-      if (!response.ok) {
-        const body = await response.text();
-        throw new Error(`Gmail message request failed: ${body}`);
-      }
+    if (!response.ok) {
+      const body = await response.text();
+      throw new Error(`Gmail message request failed: ${body}`);
+    }
 
-      const data = (await response.json()) as {
-        id: string;
-        labelIds?: string[];
-        snippet?: string;
-        payload?: {
-          headers?: Array<{ name: string; value: string }>;
-          parts?: Array<unknown>;
-        };
+    const data = (await response.json()) as {
+      id: string;
+      labelIds?: string[];
+      snippet?: string;
+      payload?: {
+        headers?: Array<{ name: string; value: string }>;
+        parts?: Array<unknown>;
       };
-      const headers = new Map(
-        (data.payload?.headers ?? []).map((header) => [
-          header.name.toLowerCase(),
-          header.value,
-        ]),
-      );
-      const date = headers.get("date");
-      const from = headers.get("from") ?? "Remitente";
+    };
+    const headers = new Map(
+      (data.payload?.headers ?? []).map((header) => [
+        header.name.toLowerCase(),
+        header.value,
+      ]),
+    );
+    const date = headers.get("date");
+    const from = headers.get("from") ?? "Remitente";
 
-      return {
-        id: `${account}:${data.id}`,
-        gmailId: data.id,
-        sender: cleanEmailName(from),
-        fromEmail: extractEmailAddress(from),
-        account,
-        subject: headers.get("subject") || "(sin asunto)",
-        preview: data.snippet ?? "",
-        time: date ? formatMessageDate(date) : "",
-        tag: data.labelIds?.includes("IMPORTANT") ? "Importante" : "Inbox",
-        state: data.labelIds?.includes("UNREAD") ? "No leido" : "Leido",
-        unread: data.labelIds?.includes("UNREAD") ?? false,
-        attachment: data.labelIds?.includes("SENT") ? false : false,
-        to: headers.get("to"),
-      };
-    }),
-  );
+    messages.push({
+      id: `${account}:${data.id}`,
+      gmailId: data.id,
+      sender: cleanEmailName(from),
+      fromEmail: extractEmailAddress(from),
+      account,
+      subject: headers.get("subject") || "(sin asunto)",
+      preview: data.snippet ?? "",
+      time: date ? formatMessageDate(date) : "",
+      tag: data.labelIds?.includes("IMPORTANT") ? "Importante" : "Inbox",
+      state: data.labelIds?.includes("UNREAD") ? "No leido" : "Leido",
+      unread: data.labelIds?.includes("UNREAD") ?? false,
+      attachment: data.labelIds?.includes("SENT") ? false : false,
+      to: headers.get("to"),
+    });
+  }
 
   return messages;
 }
@@ -623,9 +641,10 @@ function getMailboxListOptions(mailbox: GmailMailbox) {
 async function listRecentGmailMessageIds(
   accessToken: string,
   options?: { labelId?: string; query?: string },
+  maxResults = 25,
 ) {
   const params = new URLSearchParams({
-    maxResults: "25",
+    maxResults: String(maxResults),
   });
 
   if (options?.labelId) {
