@@ -40,6 +40,16 @@ function readPreferences() {
   };
 }
 
+async function readRemotePreferences() {
+  const response = await fetch("/api/preferences", { cache: "no-store" });
+
+  if (!response.ok) {
+    return readPreferences();
+  }
+
+  return (await response.json()) as typeof defaults;
+}
+
 export function AppPreferences() {
   const [appName, setAppName] = useState(defaults.appName);
   const [appLogoUrl, setAppLogoUrl] = useState(defaults.appLogoUrl);
@@ -55,7 +65,23 @@ export function AppPreferences() {
       applyFavicon(nextPreferences.faviconUrl);
     }
 
-    window.requestAnimationFrame(syncPreferences);
+    window.requestAnimationFrame(() => {
+      void readRemotePreferences()
+        .then((nextPreferences) => {
+          window.localStorage.setItem("mails-app-name", nextPreferences.appName);
+          window.localStorage.setItem(
+            "mails-app-logo-url",
+            nextPreferences.appLogoUrl,
+          );
+          window.localStorage.setItem(
+            "mails-app-favicon-url",
+            nextPreferences.faviconUrl,
+          );
+          window.localStorage.setItem("mails-app-theme", nextPreferences.theme);
+          syncPreferences();
+        })
+        .catch(syncPreferences);
+    });
     window.addEventListener("mails-preferences-updated", syncPreferences);
 
     return () => {
@@ -101,7 +127,14 @@ export function ThemeToggle() {
       applyTheme(nextTheme);
     }
 
-    window.requestAnimationFrame(syncPreferences);
+    window.requestAnimationFrame(() => {
+      void readRemotePreferences()
+        .then((nextPreferences) => {
+          window.localStorage.setItem("mails-app-theme", nextPreferences.theme);
+          syncPreferences();
+        })
+        .catch(syncPreferences);
+    });
     window.addEventListener("mails-preferences-updated", syncPreferences);
 
     return () => {

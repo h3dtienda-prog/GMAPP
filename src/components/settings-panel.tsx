@@ -56,34 +56,85 @@ export function SettingsPanel({
   const [faviconUrl, setFaviconUrl] = useState(defaults.faviconUrl);
   const [theme, setTheme] = useState(defaults.theme);
   const [saved, setSaved] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [saveTone, setSaveTone] = useState<"success" | "warning" | "error">(
+    "success",
+  );
 
   useEffect(() => {
-    window.requestAnimationFrame(() => {
-      setAppName(window.localStorage.getItem("mails-app-name") ?? defaults.appName);
-      setAppLogoUrl(
-        window.localStorage.getItem("mails-app-logo-url") ??
+    window.requestAnimationFrame(async () => {
+      const localPreferences = {
+        appName: window.localStorage.getItem("mails-app-name") ?? defaults.appName,
+        appLogoUrl:
+          window.localStorage.getItem("mails-app-logo-url") ??
           defaults.appLogoUrl,
-      );
-      setFaviconUrl(
-        window.localStorage.getItem("mails-app-favicon-url") ??
+        faviconUrl:
+          window.localStorage.getItem("mails-app-favicon-url") ??
           defaults.faviconUrl,
-      );
-      setTheme(window.localStorage.getItem("mails-app-theme") ?? defaults.theme);
+        theme: window.localStorage.getItem("mails-app-theme") ?? defaults.theme,
+      };
+
+      const preferences = await fetch("/api/preferences", { cache: "no-store" })
+        .then((response) =>
+          response.ok
+            ? (response.json() as Promise<typeof localPreferences>)
+            : localPreferences,
+        )
+        .catch(() => localPreferences);
+
+      setAppName(preferences.appName);
+      setAppLogoUrl(preferences.appLogoUrl);
+      setFaviconUrl(preferences.faviconUrl);
+      setTheme(preferences.theme);
     });
   }, []);
 
-  function savePreferences() {
+  async function savePreferences() {
     const nextName = appName.trim() || defaults.appName;
+    const nextPreferences = {
+      appName: nextName,
+      appLogoUrl: appLogoUrl.trim(),
+      faviconUrl: faviconUrl.trim(),
+      theme,
+    };
 
     window.localStorage.setItem("mails-app-name", nextName);
-    window.localStorage.setItem("mails-app-logo-url", appLogoUrl.trim());
-    window.localStorage.setItem("mails-app-favicon-url", faviconUrl.trim());
+    window.localStorage.setItem("mails-app-logo-url", nextPreferences.appLogoUrl);
+    window.localStorage.setItem("mails-app-favicon-url", nextPreferences.faviconUrl);
     window.localStorage.setItem("mails-app-theme", theme);
     document.documentElement.classList.toggle("dark", theme === "dark");
     document.title = `${nextName} - Centro de correo`;
     window.dispatchEvent(new Event("mails-preferences-updated"));
+
+    const response = await fetch("/api/preferences", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(nextPreferences),
+    });
+
+    if (!response.ok) {
+      const body = (await response.json().catch(() => null)) as {
+        error?: string;
+      } | null;
+
+      setSaveTone(body?.error?.includes("migracion") ? "warning" : "error");
+      setSaveMessage(
+        body?.error?.includes("migracion")
+          ? "Guardado en este navegador. Falta aplicar la migracion de Supabase para guardarlo globalmente."
+          : body?.error ?? "No se pudo guardar la marca de la app.",
+      );
+      return;
+    }
+
+    setSaveTone("success");
+    setSaveMessage("Marca de la app guardada.");
     setSaved(true);
-    window.setTimeout(() => setSaved(false), 1600);
+    window.setTimeout(() => {
+      setSaved(false);
+      setSaveMessage(null);
+    }, 1800);
   }
 
   async function uploadPreferenceLogo(
@@ -227,11 +278,24 @@ export function SettingsPanel({
               <button
                 type="button"
                 className="flex h-11 items-center gap-2 rounded-full bg-[#1a73e8] px-5 text-sm font-semibold text-white"
-                onClick={savePreferences}
+                onClick={() => void savePreferences()}
               >
                 <Save size={17} />
                 {saved ? "Guardado" : "Guardar cambios"}
               </button>
+              {saveMessage ? (
+                <p
+                  className={`rounded-lg px-3 py-2 text-sm font-medium ${
+                    saveTone === "success"
+                      ? "bg-[#e6f4ea] text-[#137333]"
+                      : saveTone === "warning"
+                        ? "bg-[#fef7e0] text-[#8b5e00]"
+                        : "bg-[#fce8e6] text-[#a50e0e]"
+                  }`}
+                >
+                  {saveMessage}
+                </p>
+              ) : null}
             </div>
           ) : null}
 

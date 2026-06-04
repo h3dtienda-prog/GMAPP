@@ -27,10 +27,63 @@ function accountProfileKey(account: string) {
   return `mails-account-profile:${account}`;
 }
 
+const accountOrderKey = "mails-account-order";
+
+function applyLocalProfilesAndOrder(accounts: GmailDashboardAccount[]) {
+  const profiledAccounts = accounts.map((account) => {
+    const storedProfile = window.localStorage.getItem(
+      accountProfileKey(account.address),
+    );
+
+    if (!storedProfile) {
+      return account;
+    }
+
+    try {
+      const profile = JSON.parse(storedProfile) as {
+        displayName?: string;
+        logoUrl?: string;
+      };
+
+      return {
+        ...account,
+        displayName: profile.displayName?.trim() || account.displayName,
+        logoUrl: profile.logoUrl ?? account.logoUrl,
+      };
+    } catch {
+      return account;
+    }
+  });
+
+  const storedOrder = window.localStorage.getItem(accountOrderKey);
+
+  if (!storedOrder) {
+    return profiledAccounts;
+  }
+
+  try {
+    const orderedAddresses = JSON.parse(storedOrder) as string[];
+    const orderMap = new Map(
+      orderedAddresses.map((address, index) => [address, index]),
+    );
+
+    return [...profiledAccounts].sort(
+      (first, second) =>
+        (orderMap.get(first.address) ?? Number.MAX_SAFE_INTEGER) -
+          (orderMap.get(second.address) ?? Number.MAX_SAFE_INTEGER) ||
+        first.sortOrder - second.sortOrder ||
+        first.address.localeCompare(second.address),
+    );
+  } catch {
+    return profiledAccounts;
+  }
+}
+
 export function AccountSettingsEditor({
   accounts,
 }: AccountSettingsEditorProps) {
   const router = useRouter();
+  const [visibleAccounts, setVisibleAccounts] = useState(accounts);
   const [drafts, setDrafts] = useState(
     () =>
       Object.fromEntries(
@@ -51,35 +104,30 @@ export function AccountSettingsEditor({
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
-    window.requestAnimationFrame(() => {
+    function syncProfiles() {
+      const nextAccounts = applyLocalProfilesAndOrder(accounts);
+
+      setVisibleAccounts(nextAccounts);
       setDrafts((currentDrafts) => {
         const nextDrafts = { ...currentDrafts };
 
-        for (const account of accounts) {
-          const storedProfile = window.localStorage.getItem(
-            accountProfileKey(account.address),
-          );
-
-          if (!storedProfile) {
-            continue;
-          }
-
-          try {
-            nextDrafts[account.address] = {
-              ...nextDrafts[account.address],
-              ...(JSON.parse(storedProfile) as {
-                displayName?: string;
-                logoUrl?: string;
-              }),
-            };
-          } catch {
-            // Ignore malformed local profile data.
-          }
+        for (const account of nextAccounts) {
+          nextDrafts[account.address] = {
+            displayName: account.displayName,
+            logoUrl: account.logoUrl ?? "",
+          };
         }
 
         return nextDrafts;
       });
-    });
+    }
+
+    window.requestAnimationFrame(syncProfiles);
+    window.addEventListener("mails-account-profiles-updated", syncProfiles);
+
+    return () => {
+      window.removeEventListener("mails-account-profiles-updated", syncProfiles);
+    };
   }, [accounts]);
 
   function updateDraft(
@@ -181,7 +229,7 @@ export function AccountSettingsEditor({
           </p>
         ) : null}
         <div className="mt-5 space-y-4">
-          {accounts.map((account) => {
+          {visibleAccounts.map((account) => {
             const draft = drafts[account.address] ?? {
               displayName: account.displayName,
               logoUrl: account.logoUrl ?? "",
