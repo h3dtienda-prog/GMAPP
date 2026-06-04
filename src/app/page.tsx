@@ -19,6 +19,8 @@ import {
   Tag,
 } from "lucide-react";
 import { AccountsList } from "@/components/accounts-list";
+import { AppPreferences } from "@/components/app-preferences";
+import { SidebarResizer } from "@/components/sidebar-resizer";
 import { getGmailDashboardData } from "@/lib/gmail";
 
 export const dynamic = "force-dynamic";
@@ -77,6 +79,9 @@ export default async function Home({ searchParams }: HomeProps) {
     messages.find((message) => message.id === params.message) ??
     messages[0] ??
     null;
+  const selectedAccountData = accounts.find(
+    (account) => account.address === selectedAccount,
+  );
   const unreadCount = messages.filter((message) => message.unread).length;
   const importantCount = messages.filter(
     (message) => message.tag === "Importante",
@@ -110,20 +115,13 @@ export default async function Home({ searchParams }: HomeProps) {
   ];
 
   return (
-    <main className="min-h-screen bg-[#f4f1eb] text-[#202124]">
-      <div className="grid min-h-screen grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)]">
-        <aside className="border-b border-[#d8d2c6] bg-[#fffaf1] px-5 py-5 lg:border-b-0 lg:border-r">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold uppercase text-[#8b5e34]">
-                MAILS
-              </p>
-              <h1 className="mt-1 text-2xl font-semibold text-[#202124]">
-                Centro de correo
-              </h1>
-            </div>
+    <main className="min-h-screen bg-[#f4f1eb] text-[#202124] dark:bg-[#111315] dark:text-[#e8eaed]">
+      <div className="grid min-h-screen grid-cols-1 lg:grid-cols-[var(--sidebar-width,280px)_minmax(0,1fr)]">
+        <aside className="relative max-h-screen overflow-y-auto border-b border-[#d8d2c6] bg-[#fffaf1] px-5 py-5 lg:sticky lg:top-0 lg:border-b-0 lg:border-r">
+          <div className="flex items-start justify-between gap-3">
+            <AppPreferences />
             <button
-              className="grid size-10 place-items-center rounded-md border border-[#d8d2c6] bg-white text-[#202124] shadow-sm"
+              className="grid size-10 shrink-0 place-items-center rounded-full border border-[#d8d2c6] bg-white text-[#202124] shadow-sm"
               aria-label="Notificaciones"
             >
               <Bell size={18} />
@@ -177,12 +175,16 @@ export default async function Home({ searchParams }: HomeProps) {
             </div>
             <AccountsList
               key={accounts
-                .map((account) => `${account.address}:${account.sortOrder}`)
+                .map(
+                  (account) =>
+                    `${account.address}:${account.sortOrder}:${account.displayName}:${account.logoUrl ?? ""}`,
+                )
                 .join("|")}
               accounts={accounts}
               selectedAccount={selectedAccount}
             />
           </section>
+          <SidebarResizer />
         </aside>
 
         <section className="flex min-w-0 flex-col">
@@ -213,8 +215,15 @@ export default async function Home({ searchParams }: HomeProps) {
                   Bandeja unificada
                 </p>
                 <h2 className="text-2xl font-semibold">
-                  {selectedAccount ?? "Gmail conectado en tiempo real"}
+                  {selectedAccountData?.displayName ??
+                    selectedAccount ??
+                    "Gmail conectado en tiempo real"}
                 </h2>
+                {selectedAccountData ? (
+                  <p className="mt-1 text-sm text-[#5f6368]">
+                    {selectedAccountData.address}
+                  </p>
+                ) : null}
               </div>
               <div className="flex flex-col gap-2 sm:flex-row">
                 <label className="flex h-11 min-w-0 items-center gap-2 rounded-md border border-[#d8d2c6] bg-[#f8fafd] px-3 text-sm text-[#5f6368] sm:w-80">
@@ -331,7 +340,9 @@ export default async function Home({ searchParams }: HomeProps) {
                   <div className="flex flex-col gap-3 border-b border-[#d8d2c6] px-5 py-4 md:flex-row md:items-center md:justify-between">
                     <div>
                       <p className="text-sm font-semibold text-[#174ea6]">
-                        {selectedMessage.account}
+                        {accounts.find(
+                          (account) => account.address === selectedMessage.account,
+                        )?.displayName ?? selectedMessage.account}
                       </p>
                       <h2 className="text-xl font-semibold">
                         {selectedMessage.subject}

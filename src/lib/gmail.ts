@@ -37,6 +37,8 @@ export type GmailConnectionRow = {
   threads_total: number;
   history_id: string | null;
   sort_order?: number | null;
+  display_name?: string | null;
+  logo_url?: string | null;
   encrypted_payload: EncryptedGmailPayload;
   connected_at: string;
   updated_at: string;
@@ -58,6 +60,8 @@ export type DecryptedGmailPayload = {
 
 export type GmailDashboardAccount = {
   address: string;
+  displayName: string;
+  logoUrl?: string | null;
   provider: string;
   unread: number;
   status: string;
@@ -213,6 +217,8 @@ export async function getGmailDashboardData(selectedAccount?: string) {
     : rows;
   const accounts: GmailDashboardAccount[] = rows.map((row, index) => ({
     address: row.email_address,
+    displayName: row.display_name?.trim() || row.email_address,
+    logoUrl: row.logo_url,
     provider: row.provider === "gmail" ? "Gmail" : row.provider,
     unread: 0,
     status: "Conectada",
@@ -298,7 +304,7 @@ async function getGmailConnectionRow(account: string) {
   const { data, error } = await supabase
     .from("gmail_connections")
     .select(
-      "email_address, provider, messages_total, threads_total, history_id, sort_order, encrypted_payload, connected_at, updated_at",
+      "email_address, provider, messages_total, threads_total, history_id, sort_order, display_name, logo_url, encrypted_payload, connected_at, updated_at",
     )
     .eq("email_address", account)
     .single();
@@ -340,7 +346,7 @@ async function selectGmailConnectionRows() {
   const queryWithOrder = await supabase
     .from("gmail_connections")
     .select(
-      "email_address, provider, messages_total, threads_total, history_id, sort_order, encrypted_payload, connected_at, updated_at",
+      "email_address, provider, messages_total, threads_total, history_id, sort_order, display_name, logo_url, encrypted_payload, connected_at, updated_at",
     )
     .order("sort_order", { ascending: true, nullsFirst: false })
     .order("connected_at", { ascending: true });
@@ -349,7 +355,11 @@ async function selectGmailConnectionRows() {
     return queryWithOrder;
   }
 
-  if (!queryWithOrder.error.message.includes("sort_order")) {
+  if (
+    !queryWithOrder.error.message.includes("sort_order") &&
+    !queryWithOrder.error.message.includes("display_name") &&
+    !queryWithOrder.error.message.includes("logo_url")
+  ) {
     return queryWithOrder;
   }
 
