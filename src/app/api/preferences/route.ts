@@ -38,6 +38,8 @@ const defaults = {
   darkAccent: "#8ab4f8",
   darkButton: "#2d5f7a",
 };
+const preferenceColumns =
+  "app_name, app_title, app_logo_url, favicon_url, theme, light_background, light_surface, light_sidebar, light_accent, light_button, dark_background, dark_surface, dark_sidebar, dark_accent, dark_button";
 
 function normalizeOptionalText(value: string | undefined) {
   const trimmed = value?.trim();
@@ -119,6 +121,16 @@ function isMissingAppTitleColumn(message: string) {
   );
 }
 
+function isLegacyPreferencesSchema(message: string) {
+  const lowerMessage = message.toLowerCase();
+
+  return (
+    lowerMessage.includes("id") ||
+    lowerMessage.includes("schema cache") ||
+    isMissingAppTitleColumn(message)
+  );
+}
+
 export async function GET() {
   const supabase = getSupabaseAdminClient();
 
@@ -128,17 +140,15 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from("app_preferences")
-    .select(
-      "app_name, app_title, app_logo_url, favicon_url, theme, light_background, light_surface, light_sidebar, light_accent, light_button, dark_background, dark_surface, dark_sidebar, dark_accent, dark_button",
-    )
+    .select(preferenceColumns)
     .eq("id", "default")
     .maybeSingle();
 
-  if (error && isMissingAppTitleColumn(error.message)) {
+  if (error && isLegacyPreferencesSchema(error.message)) {
     const { data: fallbackData, error: fallbackError } = await supabase
       .from("app_preferences")
-      .select("app_name, app_logo_url, favicon_url, theme")
-      .eq("id", "default")
+      .select(preferenceColumns)
+      .limit(1)
       .maybeSingle();
 
     if (fallbackError || !fallbackData) {
@@ -191,8 +201,7 @@ export async function POST(request: NextRequest) {
 
   const theme = body.theme === "dark" ? "dark" : "light";
   const updatedAt = new Date().toISOString();
-  const payload = {
-    id: "default",
+  const payloadWithoutId = {
     app_name: body.appName?.trim() || defaults.appName,
     app_title: body.appTitle?.trim() || defaults.appTitle,
     app_logo_url: appLogoUrl,
@@ -213,36 +222,36 @@ export async function POST(request: NextRequest) {
     dark_button: normalizeColor(body.darkButton, defaults.darkButton),
     updated_at: updatedAt,
   };
+  const payload = {
+    id: "default",
+    ...payloadWithoutId,
+  };
   const { error } = await supabase
     .from("app_preferences")
     .upsert(payload, { onConflict: "id" });
 
   if (error) {
-    if (isMissingAppTitleColumn(error.message)) {
+    if (isLegacyPreferencesSchema(error.message)) {
       const { error: fallbackError } = await supabase
         .from("app_preferences")
-        .upsert(
-          {
-            id: "default",
-            app_name: payload.app_name,
-            app_logo_url: payload.app_logo_url,
-            favicon_url: payload.favicon_url,
-            theme: payload.theme,
-            updated_at: updatedAt,
-          },
-          { onConflict: "id" },
-        );
+        .update(payloadWithoutId)
+        .not("updated_at", "is", null);
 
       if (!fallbackError) {
-        return NextResponse.json({ ok: true, appTitleFallback: true });
+        return NextResponse.json({ ok: true, legacySchema: true });
       }
+
+      return NextResponse.json(
+        {
+          error: fallbackError.message,
+        },
+        { status: 500 },
+      );
     }
 
     return NextResponse.json(
       {
-        error: error.message.includes("app_preferences")
-          ? "Falta aplicar la migracion de Supabase para app_preferences."
-          : error.message,
+        error: error.message,
       },
       { status: 500 },
     );

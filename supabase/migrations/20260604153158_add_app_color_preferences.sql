@@ -1,4 +1,5 @@
 alter table public.app_preferences
+add column if not exists id text default 'default',
 add column if not exists light_background text default '#f6f8fc',
 add column if not exists light_surface text default '#ffffff',
 add column if not exists light_sidebar text default '#f6f8fc',
@@ -23,3 +24,7 @@ set
   dark_accent = coalesce(dark_accent, '#8ab4f8'),
   dark_button = coalesce(dark_button, '#2d5f7a')
 where id = 'default';
+
+update public.app_preferences
+set id = 'default'
+where id is null;
