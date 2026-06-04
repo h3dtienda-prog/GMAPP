@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { AccountsList } from "@/components/accounts-list";
-import { AppPreferences } from "@/components/app-preferences";
+import { AppPreferences, ThemeToggle } from "@/components/app-preferences";
 import { GmailInboxList, MoveToLabelMenu } from "@/components/gmail-inbox-list";
 import { HeaderIdentity } from "@/components/header-identity";
 import { SettingsPanel } from "@/components/settings-panel";
@@ -233,10 +233,10 @@ function GmailTopBar({
   tab: string;
 }) {
   return (
-    <header className="flex h-16 items-center justify-between gap-4 bg-[#f6f8fc] px-5">
+    <header className="flex h-16 items-center justify-between gap-4 bg-[#f6f8fc] px-5 dark:bg-[#111315]">
       <form
         action="/"
-        className="flex h-12 w-full max-w-[720px] items-center gap-3 rounded-full bg-[#eaf1fb] px-4 text-[#5f6368]"
+        className="flex h-12 w-full max-w-[720px] items-center gap-3 rounded-full bg-[#eaf1fb] px-4 text-[#5f6368] dark:bg-[#202124] dark:text-[#bdc1c6]"
       >
         {selectedAccount ? (
           <input type="hidden" name="account" value={selectedAccount} />
@@ -250,30 +250,31 @@ function GmailTopBar({
         <input
           name="q"
           defaultValue={q}
-          className="min-w-0 flex-1 bg-transparent text-sm text-[#202124] outline-none placeholder:text-[#5f6368]"
+          className="min-w-0 flex-1 bg-transparent text-sm text-[#202124] outline-none placeholder:text-[#5f6368] dark:text-[#e8eaed] dark:placeholder:text-[#9aa0a6]"
           placeholder="Buscar correo"
         />
         <button
           type="submit"
-          className="grid size-8 place-items-center rounded-full hover:bg-[#dbe7f8]"
+          className="grid size-8 place-items-center rounded-full hover:bg-[#dbe7f8] dark:hover:bg-[#2b2c2f]"
           aria-label="Buscar"
           title="Buscar"
         >
           <SlidersHorizontal size={20} />
         </button>
       </form>
-      <div className="hidden items-center gap-2 text-[#3c4043] md:flex">
+      <div className="hidden items-center gap-2 text-[#3c4043] dark:text-[#e8eaed] md:flex">
         <Link
           href="/?settings=help"
-          className="grid size-10 place-items-center rounded-full hover:bg-[#e8eaed]"
+          className="grid size-10 place-items-center rounded-full hover:bg-[#e8eaed] dark:hover:bg-[#2b2c2f]"
           aria-label="Ayuda"
           title="Ayuda"
         >
           <HelpCircle size={20} />
         </Link>
+        <ThemeToggle />
         <Link
           href="/?settings=appearance"
-          className="grid size-10 place-items-center rounded-full hover:bg-[#e8eaed]"
+          className="grid size-10 place-items-center rounded-full hover:bg-[#e8eaed] dark:hover:bg-[#2b2c2f]"
           aria-label="Configuracion"
           title="Configuracion"
         >
@@ -310,7 +311,7 @@ function MessageActionForm({
       {labelId ? <input type="hidden" name="labelId" value={labelId} /> : null}
       <input type="hidden" name="redirectTo" value={redirectTo} />
       <button
-        className="grid size-10 place-items-center rounded-full text-[#5f6368] hover:bg-[#f1f3f4]"
+        className="grid size-10 place-items-center rounded-full text-[#5f6368] hover:bg-[#f1f3f4] dark:text-[#bdc1c6] dark:hover:bg-[#2b2c2f]"
         aria-label={label}
         title={label}
       >
@@ -338,12 +339,12 @@ function GmailMessageReader({
   const redirectTo = buildMessageHref(message, selectedAccount);
 
   return (
-    <article className="min-h-0 flex-1 rounded-t-3xl bg-white">
-      <div className="flex h-14 items-center justify-between border-b border-[#e0e0e0] px-5 text-[#5f6368]">
+    <article className="min-h-0 flex-1 rounded-t-3xl bg-white dark:bg-[#202124]">
+      <div className="flex h-14 items-center justify-between border-b border-[#e0e0e0] px-5 text-[#5f6368] dark:border-[#3c4043] dark:text-[#bdc1c6]">
         <div className="flex items-center gap-2">
           <a
             href={backHref}
-            className="grid size-10 place-items-center rounded-full hover:bg-[#f1f3f4]"
+            className="grid size-10 place-items-center rounded-full hover:bg-[#f1f3f4] dark:hover:bg-[#2b2c2f]"
             aria-label="Volver"
             title="Volver"
           >
@@ -359,7 +360,7 @@ function GmailMessageReader({
             <Archive size={18} />
           </MessageActionForm>
           <button
-            className="grid size-10 place-items-center rounded-full hover:bg-[#f1f3f4]"
+            className="grid size-10 place-items-center rounded-full hover:bg-[#f1f3f4] dark:hover:bg-[#2b2c2f]"
             aria-label="Eliminar"
             title="Eliminar"
           >
@@ -375,7 +376,7 @@ function GmailMessageReader({
             <Star size={18} />
           </MessageActionForm>
           <button
-            className="grid size-10 place-items-center rounded-full hover:bg-[#f1f3f4]"
+            className="grid size-10 place-items-center rounded-full hover:bg-[#f1f3f4] dark:hover:bg-[#2b2c2f]"
             aria-label="Mas opciones"
             title="Mas opciones"
           >
@@ -399,7 +400,7 @@ function GmailMessageReader({
 
       <div className="px-8 py-8">
         <div className="flex items-start justify-between gap-4">
-          <h2 className="text-2xl font-normal text-[#202124]">
+          <h2 className="text-2xl font-normal text-[#202124] dark:text-[#e8eaed]">
             {message.subject}
             <span className="ml-3 rounded bg-[#e8eaed] px-2 py-1 text-xs text-[#5f6368]">
               Recibidos
@@ -421,11 +422,11 @@ function GmailMessageReader({
                 </span>
               ) : null}
             </div>
-            <p className="text-sm text-[#5f6368]">
+            <p className="text-sm text-[#5f6368] dark:text-[#bdc1c6]">
               para {message.to ?? accountLabel}
             </p>
           </div>
-          <div className="flex items-center gap-3 text-[#5f6368]">
+          <div className="flex items-center gap-3 text-[#5f6368] dark:text-[#bdc1c6]">
             <span title="Destacar">
               <Star size={18} />
             </span>
@@ -441,11 +442,11 @@ function GmailMessageReader({
           </div>
         </div>
 
-        <div className="mx-auto mt-10 max-w-2xl rounded-lg border border-[#dadce0] px-8 py-10 text-center shadow-sm">
+        <div className="mx-auto mt-10 max-w-2xl rounded-lg border border-[#dadce0] px-8 py-10 text-center shadow-sm dark:border-[#3c4043]">
           <p className="text-sm font-semibold text-[#4285f4]">{accountLabel}</p>
           <h3 className="mt-5 text-2xl font-normal">{message.subject}</h3>
           <div className="mx-auto mt-8 h-px max-w-md bg-[#dadce0]" />
-          <p className="mx-auto mt-6 max-w-xl text-sm leading-7 text-[#3c4043]">
+          <p className="mx-auto mt-6 max-w-xl text-sm leading-7 text-[#3c4043] dark:text-[#bdc1c6]">
             {message.preview || "Sin vista previa disponible."}
           </p>
         </div>
@@ -599,11 +600,11 @@ export default async function Home({ searchParams }: HomeProps) {
   return (
     <main className="min-h-screen bg-[#f6f8fc] text-[#202124] dark:bg-[#111315] dark:text-[#e8eaed]">
       <div className="grid min-h-screen grid-cols-1 lg:grid-cols-[var(--sidebar-width,280px)_minmax(0,1fr)]">
-        <aside className="relative max-h-screen overflow-y-auto bg-[#f6f8fc] px-3 py-4 lg:sticky lg:top-0">
+        <aside className="relative max-h-screen overflow-y-auto bg-[#f6f8fc] px-3 py-4 dark:bg-[#111315] lg:sticky lg:top-0">
           <div className="flex items-start justify-between gap-3 px-2">
             <AppPreferences />
             <button
-              className="grid size-10 shrink-0 place-items-center rounded-full bg-white text-[#202124] shadow-sm"
+              className="grid size-10 shrink-0 place-items-center rounded-full bg-white text-[#202124] shadow-sm dark:bg-[#202124] dark:text-[#e8eaed]"
               aria-label="Notificaciones"
             >
               <Bell size={18} />
@@ -628,8 +629,8 @@ export default async function Home({ searchParams }: HomeProps) {
                   href={folder.href}
                   className={`flex h-9 items-center justify-between rounded-r-full px-4 text-sm ${
                     folder.active
-                      ? "bg-[#d3e3fd] font-semibold text-[#041e49]"
-                      : "text-[#3c4043] hover:bg-[#eaf1fb]"
+                      ? "bg-[#d3e3fd] font-semibold text-[#041e49] dark:bg-[#253858] dark:text-[#d3e3fd]"
+                      : "text-[#3c4043] hover:bg-[#eaf1fb] dark:text-[#e8eaed] dark:hover:bg-[#202124]"
                   }`}
                 >
                   <span className="flex items-center gap-4">
@@ -646,10 +647,10 @@ export default async function Home({ searchParams }: HomeProps) {
 
           <section className="mt-7 px-2">
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-[#202124]">Cuentas</h2>
+              <h2 className="text-sm font-semibold text-[#202124] dark:text-[#e8eaed]">Cuentas</h2>
               <a
                 href="/api/gmail/connect"
-                className="grid size-8 place-items-center rounded-full text-[#4d5156] hover:bg-[#eaf1fb]"
+                className="grid size-8 place-items-center rounded-full text-[#4d5156] hover:bg-[#eaf1fb] dark:text-[#e8eaed] dark:hover:bg-[#202124]"
                 aria-label="Agregar cuenta"
               >
                 <Plus size={17} />
@@ -671,7 +672,7 @@ export default async function Home({ searchParams }: HomeProps) {
           <SidebarResizer />
         </aside>
 
-        <section className="flex min-w-0 flex-col bg-[#f6f8fc]">
+        <section className="flex min-w-0 flex-col bg-[#f6f8fc] dark:bg-[#111315]">
           <GmailTopBar
             accounts={accounts}
             folder={activeFolder}

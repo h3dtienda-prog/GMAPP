@@ -191,7 +191,7 @@ export function AccountsList({
 
   if (orderedAccounts.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed border-[#d8d2c6] bg-white p-4 text-sm text-[#5f6368]">
+      <div className="rounded-lg border border-dashed border-[#d8d2c6] bg-white p-4 text-sm text-[#5f6368] dark:border-[#3c4043] dark:bg-[#202124] dark:text-[#bdc1c6]">
         No hay cuentas conectadas todavia.
       </div>
     );
@@ -219,18 +219,18 @@ export function AccountsList({
                 reorder(draggedAddress, account.address);
               }
             }}
-            className={`rounded-[18px] border bg-white px-2.5 py-2 transition ${
+            className={`rounded-[18px] border bg-white px-2.5 py-2 transition dark:bg-[#202124] ${
               draggedAddress === account.address
                 ? "border-[#1a73e8] opacity-60"
                 : isSelected
-                  ? "border-[#1a73e8] shadow-sm"
-                  : "border-[#d8d2c6]"
+                  ? "border-[#1a73e8] shadow-sm dark:border-[#8ab4f8]"
+                  : "border-[#d8d2c6] dark:border-[#3c4043]"
             }`}
           >
             <div className="flex items-start gap-2">
               <button
                 type="button"
-                className="mt-1 grid size-6 shrink-0 cursor-grab place-items-center rounded-full text-[#5f6368] hover:bg-[#f1f3f4]"
+                className="mt-1 grid size-6 shrink-0 cursor-grab place-items-center rounded-full text-[#5f6368] hover:bg-[#f1f3f4] dark:text-[#bdc1c6] dark:hover:bg-[#2b2c2f]"
                 aria-label={`Arrastrar ${account.address}`}
               >
                 <GripVertical size={16} />
@@ -243,7 +243,7 @@ export function AccountsList({
                   <img
                     src={account.logoUrl}
                     alt=""
-                    className="size-9 rounded-full border border-[#d8d2c6] object-cover"
+                    className="size-9 rounded-full border border-[#d8d2c6] object-cover dark:border-[#3c4043]"
                   />
                 ) : (
                   <div className="grid size-9 place-items-center rounded-full bg-[#e8f0fe] text-sm font-semibold text-[#174ea6]">
@@ -259,17 +259,17 @@ export function AccountsList({
               <div className="min-w-0 flex-1">
                 <Link
                   href={buildAccountHref(account.address)}
-                  className="block truncate text-sm font-semibold hover:text-[#174ea6]"
+                  className="block truncate text-sm font-semibold text-[#202124] hover:text-[#174ea6] dark:text-[#e8eaed] dark:hover:text-[#8ab4f8]"
                 >
                   {account.displayName}
                 </Link>
-                <div className="mt-1 flex items-center justify-between gap-2 text-xs text-[#5f6368]">
+                <div className="mt-1 flex items-center justify-between gap-2 text-xs text-[#5f6368] dark:text-[#bdc1c6]">
                   <span>{account.provider}</span>
                   <div className="flex items-center gap-1">
                     <span>{account.threadsTotal.toLocaleString("es")} hilos</span>
                     <button
                       type="button"
-                      className="grid size-6 place-items-center rounded-full hover:bg-[#f1f3f4] disabled:opacity-35"
+                      className="grid size-6 place-items-center rounded-full hover:bg-[#f1f3f4] disabled:opacity-35 dark:hover:bg-[#2b2c2f]"
                       disabled={index === 0 || isSavingOrder}
                       onClick={() => move(account.address, -1)}
                       aria-label={`Subir ${account.address}`}
@@ -278,7 +278,7 @@ export function AccountsList({
                     </button>
                     <button
                       type="button"
-                      className="grid size-6 place-items-center rounded-full hover:bg-[#f1f3f4] disabled:opacity-35"
+                      className="grid size-6 place-items-center rounded-full hover:bg-[#f1f3f4] disabled:opacity-35 dark:hover:bg-[#2b2c2f]"
                       disabled={index === orderedAccounts.length - 1 || isSavingOrder}
                       onClick={() => move(account.address, 1)}
                       aria-label={`Bajar ${account.address}`}
@@ -291,13 +291,13 @@ export function AccountsList({
             </div>
 
             {isSelected ? (
-              <div className="mt-2 border-t border-[#ece7dd] pt-2">
-                <div className="mb-1 flex items-center justify-between px-2 text-xs font-semibold text-[#3c4043]">
+              <div className="mt-2 border-t border-[#ece7dd] pt-2 dark:border-[#3c4043]">
+                <div className="mb-1 flex items-center justify-between px-2 text-xs font-semibold text-[#3c4043] dark:text-[#e8eaed]">
                   <span>Etiquetas</span>
                   <span className="text-base leading-none text-[#5f6368]">+</span>
                 </div>
                 {accountLabels.length === 0 ? (
-                  <p className="px-2 py-2 text-xs text-[#5f6368]">
+                  <p className="px-2 py-2 text-xs text-[#5f6368] dark:text-[#bdc1c6]">
                     Esta cuenta no tiene etiquetas personalizadas.
                   </p>
                 ) : (
@@ -311,8 +311,8 @@ export function AccountsList({
                           href={buildAccountHref(account.address, label.id)}
                           className={`flex h-8 items-center justify-between gap-2 rounded-r-full px-2 text-xs ${
                             activeLabel === label.id
-                              ? "bg-[#d3e3fd] font-semibold text-[#041e49]"
-                              : "text-[#3c4043] hover:bg-[#f1f3f4]"
+                              ? "bg-[#d3e3fd] font-semibold text-[#041e49] dark:bg-[#253858] dark:text-[#d3e3fd]"
+                              : "text-[#3c4043] hover:bg-[#f1f3f4] dark:text-[#e8eaed] dark:hover:bg-[#2b2c2f]"
                           }`}
                         >
                           <span className="flex min-w-0 items-center gap-2">

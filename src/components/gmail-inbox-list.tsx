@@ -94,7 +94,7 @@ function ActionForm({
         </span>
       ))}
       <button
-        className="grid size-8 place-items-center rounded-full text-[#5f6368] hover:bg-[#f1f3f4]"
+        className="grid size-8 place-items-center rounded-full text-[#5f6368] hover:bg-[#f1f3f4] dark:text-[#bdc1c6] dark:hover:bg-[#2b2c2f]"
         aria-label={label}
         title={label}
       >
@@ -123,21 +123,21 @@ export function MoveToLabelMenu({
   return (
     <details className="relative">
       <summary
-        className="grid size-8 cursor-pointer list-none place-items-center rounded-full text-[#5f6368] hover:bg-[#f1f3f4]"
+        className="grid size-8 cursor-pointer list-none place-items-center rounded-full text-[#5f6368] hover:bg-[#f1f3f4] dark:text-[#bdc1c6] dark:hover:bg-[#2b2c2f]"
         aria-label="Mover a etiqueta"
         title="Mover a etiqueta"
       >
         <Tag size={16} />
       </summary>
-      <div className="absolute left-0 z-20 mt-2 max-h-72 w-64 overflow-auto rounded-xl border border-[#dadce0] bg-white p-2 text-sm shadow-lg">
+      <div className="absolute left-0 z-20 mt-2 max-h-72 w-64 overflow-auto rounded-xl border border-[#dadce0] bg-white p-2 text-sm shadow-lg dark:border-[#3c4043] dark:bg-[#202124]">
         {messages.length === 0 ? (
-          <p className="px-3 py-2 text-[#5f6368]">Selecciona al menos un mail.</p>
+          <p className="px-3 py-2 text-[#5f6368] dark:text-[#bdc1c6]">Selecciona al menos un mail.</p>
         ) : selectedAccounts.size > 1 ? (
-          <p className="px-3 py-2 text-[#5f6368]">
+          <p className="px-3 py-2 text-[#5f6368] dark:text-[#bdc1c6]">
             Para mover a etiqueta, selecciona mails de una sola cuenta.
           </p>
         ) : accountLabels.length === 0 ? (
-          <p className="px-3 py-2 text-[#5f6368]">
+          <p className="px-3 py-2 text-[#5f6368] dark:text-[#bdc1c6]">
             Esta cuenta no tiene etiquetas personalizadas.
           </p>
         ) : (
@@ -156,7 +156,7 @@ export function MoveToLabelMenu({
                   <input type="hidden" name="gmailId" value={message.gmailId} />
                 </span>
               ))}
-              <button className="block w-full truncate rounded-lg px-3 py-2 text-left hover:bg-[#f1f3f4]">
+              <button className="block w-full truncate rounded-lg px-3 py-2 text-left hover:bg-[#f1f3f4] dark:text-[#e8eaed] dark:hover:bg-[#2b2c2f]">
                 {label.name}
               </button>
             </form>
@@ -220,10 +220,10 @@ export function GmailInboxList({
   ];
 
   return (
-    <section className="flex min-h-0 flex-1 flex-col rounded-t-3xl bg-white">
-      <div className="flex h-14 items-center justify-between border-b border-[#e0e0e0] px-5 text-[#5f6368]">
+    <section className="flex min-h-0 flex-1 flex-col rounded-t-3xl bg-white dark:bg-[#202124]">
+      <div className="flex h-14 items-center justify-between border-b border-[#e0e0e0] px-5 text-[#5f6368] dark:border-[#3c4043] dark:text-[#bdc1c6]">
         <div className="flex items-center gap-3">
-          <label className="grid size-8 place-items-center rounded-full hover:bg-[#f1f3f4]">
+          <label className="grid size-8 place-items-center rounded-full hover:bg-[#f1f3f4] dark:hover:bg-[#2b2c2f]">
             <input
               type="checkbox"
               checked={allVisibleSelected}
@@ -272,7 +272,7 @@ export function GmailInboxList({
                 messages={selectedMessages}
                 redirectTo={currentHref}
               />
-              <span className="text-xs font-semibold text-[#3c4043]">
+              <span className="text-xs font-semibold text-[#3c4043] dark:text-[#e8eaed]">
                 {selectedMessages.length} seleccionados
               </span>
             </>
@@ -280,7 +280,7 @@ export function GmailInboxList({
             <>
               <Link
                 href={currentHref}
-                className="grid size-8 place-items-center rounded-full hover:bg-[#f1f3f4]"
+                className="grid size-8 place-items-center rounded-full hover:bg-[#f1f3f4] dark:hover:bg-[#2b2c2f]"
                 aria-label="Refrescar"
                 title="Refrescar"
               >
@@ -288,28 +288,28 @@ export function GmailInboxList({
               </Link>
               <details className="relative">
                 <summary
-                  className="grid size-8 cursor-pointer list-none place-items-center rounded-full hover:bg-[#f1f3f4]"
+                  className="grid size-8 cursor-pointer list-none place-items-center rounded-full hover:bg-[#f1f3f4] dark:hover:bg-[#2b2c2f]"
                   aria-label="Mas opciones"
                   title="Mas opciones"
                 >
                   <MoreVertical size={18} />
                 </summary>
-                <div className="absolute left-0 z-10 mt-2 w-56 rounded-xl border border-[#dadce0] bg-white p-2 text-sm shadow-lg">
+                <div className="absolute left-0 z-10 mt-2 w-56 rounded-xl border border-[#dadce0] bg-white p-2 text-sm shadow-lg dark:border-[#3c4043] dark:bg-[#202124]">
                   <Link
                     href={tabHrefs.all}
-                    className="block rounded-lg px-3 py-2 hover:bg-[#f1f3f4]"
+                    className="block rounded-lg px-3 py-2 hover:bg-[#f1f3f4] dark:text-[#e8eaed] dark:hover:bg-[#2b2c2f]"
                   >
                     Ver todos
                   </Link>
                   <Link
                     href={tabHrefs.unread}
-                    className="block rounded-lg px-3 py-2 hover:bg-[#f1f3f4]"
+                    className="block rounded-lg px-3 py-2 hover:bg-[#f1f3f4] dark:text-[#e8eaed] dark:hover:bg-[#2b2c2f]"
                   >
                     No leidos
                   </Link>
                   <Link
                     href={tabHrefs.important}
-                    className="block rounded-lg px-3 py-2 hover:bg-[#f1f3f4]"
+                    className="block rounded-lg px-3 py-2 hover:bg-[#f1f3f4] dark:text-[#e8eaed] dark:hover:bg-[#2b2c2f]"
                   >
                     Importantes
                   </Link>
@@ -327,30 +327,32 @@ export function GmailInboxList({
         </div>
       </div>
 
-      <div className="grid border-b border-[#e0e0e0] bg-white md:grid-cols-3">
+      <div className="grid border-b border-[#e0e0e0] bg-white dark:border-[#3c4043] dark:bg-[#202124] md:grid-cols-3">
         {tabs.map((item) => (
           <Link
             key={item.id}
             href={tabHrefs[item.id]}
             className={`relative flex h-16 items-center gap-3 px-6 text-sm ${
-              tab === item.id ? "font-semibold text-[#0b57d0]" : "text-[#5f6368]"
+              tab === item.id
+                ? "font-semibold text-[#0b57d0] dark:text-[#8ab4f8]"
+                : "text-[#5f6368] dark:text-[#bdc1c6]"
             }`}
           >
             <Tag size={18} />
             <div className="min-w-0">
               <p>{item.label}</p>
-              <p className="truncate text-xs font-normal text-[#8a9099]">
+              <p className="truncate text-xs font-normal text-[#8a9099] dark:text-[#9aa0a6]">
                 {item.detail}
               </p>
             </div>
             {tab === item.id ? (
-              <span className="absolute bottom-0 left-4 right-4 h-1 rounded-t-full bg-[#0b57d0]" />
+              <span className="absolute bottom-0 left-4 right-4 h-1 rounded-t-full bg-[#0b57d0] dark:bg-[#8ab4f8]" />
             ) : null}
           </Link>
         ))}
       </div>
 
-      <div className="divide-y divide-[#e8eaed]">
+      <div className="divide-y divide-[#e8eaed] dark:divide-[#3c4043]">
         {messages.length > 0 ? (
           messages.map((message) => {
             const accountLabel = getAccountLabel(accounts, message.account);
@@ -361,10 +363,10 @@ export function GmailInboxList({
                 key={message.id}
                 className={`grid min-h-10 grid-cols-[28px_28px_minmax(120px,180px)_minmax(0,1fr)_92px] items-center gap-2 px-5 py-2 text-sm hover:shadow-[inset_1px_0_0_#dadce0,inset_-1px_0_0_#dadce0,0_1px_2px_rgba(60,64,67,.18),0_1px_3px_1px_rgba(60,64,67,.10)] ${
                   isSelected
-                    ? "bg-[#c2e7ff]"
+                    ? "bg-[#c2e7ff] dark:bg-[#253858]"
                     : message.unread
-                      ? "bg-white font-semibold"
-                      : "bg-[#f2f6fc]"
+                      ? "bg-white font-semibold dark:bg-[#202124]"
+                      : "bg-[#f2f6fc] dark:bg-[#1b1c1f]"
                 }`}
               >
                 <input
@@ -391,9 +393,9 @@ export function GmailInboxList({
                 </a>
                 <a
                   href={buildMessageHref(message, selectedAccount)}
-                  className="min-w-0 truncate text-[#5f6368]"
+                  className="min-w-0 truncate text-[#5f6368] dark:text-[#bdc1c6]"
                 >
-                  <strong className="text-[#202124]">{message.subject}</strong>
+                  <strong className="text-[#202124] dark:text-[#e8eaed]">{message.subject}</strong>
                   {" - "}
                   {message.preview}
                   <span className="ml-2 rounded-full bg-[#e6f4ea] px-2 py-0.5 text-xs font-semibold text-[#137333]">
@@ -406,13 +408,13 @@ export function GmailInboxList({
                     messages={[message]}
                     redirectTo={currentHref}
                   />
-                  <span className="text-xs text-[#202124]">{message.time}</span>
+                  <span className="text-xs text-[#202124] dark:text-[#e8eaed]">{message.time}</span>
                 </div>
               </div>
             );
           })
         ) : (
-          <div className="px-8 py-16 text-sm text-[#5f6368]">
+          <div className="px-8 py-16 text-sm text-[#5f6368] dark:text-[#bdc1c6]">
             No hay mensajes recientes para mostrar.
           </div>
         )}

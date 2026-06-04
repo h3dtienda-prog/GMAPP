@@ -3,8 +3,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
-import { Moon, Settings, Sun } from "lucide-react";
+import { Moon, Sun } from "lucide-react";
 
 const defaults = {
   appName: "MAILS",
@@ -44,7 +43,6 @@ function readPreferences() {
 export function AppPreferences() {
   const [appName, setAppName] = useState(defaults.appName);
   const [appLogoUrl, setAppLogoUrl] = useState(defaults.appLogoUrl);
-  const [theme, setTheme] = useState(defaults.theme);
 
   useEffect(() => {
     function syncPreferences() {
@@ -52,10 +50,55 @@ export function AppPreferences() {
 
       setAppName(nextPreferences.appName);
       setAppLogoUrl(nextPreferences.appLogoUrl);
-      setTheme(nextPreferences.theme);
       document.title = `${nextPreferences.appName} - Centro de correo`;
       applyTheme(nextPreferences.theme);
       applyFavicon(nextPreferences.faviconUrl);
+    }
+
+    window.requestAnimationFrame(syncPreferences);
+    window.addEventListener("mails-preferences-updated", syncPreferences);
+
+    return () => {
+      window.removeEventListener("mails-preferences-updated", syncPreferences);
+    };
+  }, []);
+
+  return (
+    <div className="min-w-0 flex-1">
+      <div className="flex min-w-0 items-center gap-3">
+        {appLogoUrl ? (
+          <img
+            src={appLogoUrl}
+            alt=""
+            className="size-10 shrink-0 rounded-xl border border-[#d8d2c6] object-cover dark:border-[#3c4043]"
+          />
+        ) : (
+          <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-[#1a73e8] text-sm font-semibold text-white">
+            {appName.slice(0, 2).toUpperCase()}
+          </div>
+        )}
+        <div className="min-w-0">
+          <p className="truncate text-xs font-semibold uppercase text-[#8b5e34] dark:text-[#fbbc04]">
+            {appName}
+          </p>
+          <h1 className="truncate text-2xl font-semibold text-[#202124] dark:text-[#e8eaed]">
+            Centro de correo
+          </h1>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function ThemeToggle() {
+  const [theme, setTheme] = useState(defaults.theme);
+
+  useEffect(() => {
+    function syncPreferences() {
+      const nextTheme = readPreferences().theme;
+
+      setTheme(nextTheme);
+      applyTheme(nextTheme);
     }
 
     window.requestAnimationFrame(syncPreferences);
@@ -76,46 +119,14 @@ export function AppPreferences() {
   }
 
   return (
-    <div className="min-w-0 flex-1">
-      <div className="flex min-w-0 items-center gap-3">
-        {appLogoUrl ? (
-          <img
-            src={appLogoUrl}
-            alt=""
-            className="size-10 shrink-0 rounded-xl border border-[#d8d2c6] object-cover"
-          />
-        ) : (
-          <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-[#1a73e8] text-sm font-semibold text-white">
-            {appName.slice(0, 2).toUpperCase()}
-          </div>
-        )}
-        <div className="min-w-0">
-          <p className="truncate text-xs font-semibold uppercase text-[#8b5e34]">
-            {appName}
-          </p>
-          <h1 className="truncate text-2xl font-semibold text-[#202124]">
-            Centro de correo
-          </h1>
-        </div>
-      </div>
-
-      <div className="mt-3 flex gap-2">
-        <Link
-          href="/?settings=appearance"
-          className="grid size-9 place-items-center rounded-full border border-[#d8d2c6] bg-white text-[#202124] shadow-sm"
-          aria-label="Configuracion"
-        >
-          <Settings size={17} />
-        </Link>
-        <button
-          type="button"
-          className="grid size-9 place-items-center rounded-full border border-[#d8d2c6] bg-white text-[#202124] shadow-sm"
-          onClick={toggleTheme}
-          aria-label="Cambiar tema"
-        >
-          {theme === "dark" ? <Sun size={17} /> : <Moon size={17} />}
-        </button>
-      </div>
-    </div>
+    <button
+      type="button"
+      className="grid size-10 place-items-center rounded-full text-[#3c4043] hover:bg-[#e8eaed] dark:text-[#e8eaed] dark:hover:bg-[#2b2c2f]"
+      onClick={toggleTheme}
+      aria-label="Cambiar tema"
+      title="Cambiar tema"
+    >
+      {theme === "dark" ? <Sun size={20} /> : <Moon size={20} />}
+    </button>
   );
 }
