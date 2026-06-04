@@ -227,6 +227,7 @@ export async function getGmailDashboardData(selectedAccount?: string) {
     sortOrder: row.sort_order ?? index,
   }));
   const messages: GmailDashboardMessage[] = [];
+  const connectionErrors: string[] = [];
 
   for (const row of visibleRows) {
     try {
@@ -244,13 +245,18 @@ export async function getGmailDashboardData(selectedAccount?: string) {
       }
     } catch (error) {
       console.error(error);
+      connectionErrors.push(
+        `${row.email_address}: ${
+          error instanceof Error ? error.message : "No se pudo leer Gmail."
+        }`,
+      );
     }
   }
 
   return {
     accounts,
     messages,
-    error: null,
+    error: connectionErrors.length > 0 ? connectionErrors.join("\n") : null,
   };
 }
 
@@ -436,7 +442,7 @@ async function getRecentGmailMessages(account: string, accessToken: string) {
           headers: {
             Authorization: `Bearer ${accessToken}`,
           },
-          next: { revalidate: 60 },
+          cache: "no-store",
         },
       );
 
@@ -499,7 +505,7 @@ async function listRecentGmailMessageIds(accessToken: string, labelId?: string) 
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },
-      next: { revalidate: 30 },
+      cache: "no-store",
     },
   );
 
