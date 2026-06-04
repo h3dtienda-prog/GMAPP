@@ -220,8 +220,8 @@ export function GmailInboxList({
   ];
 
   return (
-    <section className="flex min-h-0 flex-1 flex-col rounded-t-3xl bg-white dark:bg-[#202124]">
-      <div className="flex h-14 items-center justify-between border-b border-[#e0e0e0] px-5 text-[#5f6368] dark:border-[#3c4043] dark:text-[#bdc1c6]">
+    <section className="flex min-h-0 flex-1 flex-col rounded-t-3xl bg-white dark:bg-[#1f1f1f]">
+      <div className="flex h-14 items-center justify-between border-b border-[#e0e0e0] px-5 text-[#5f6368] dark:border-[#3c4043] dark:bg-[#1f1f1f] dark:text-[#bdc1c6]">
         <div className="flex items-center gap-3">
           <label className="grid size-8 place-items-center rounded-full hover:bg-[#f1f3f4] dark:hover:bg-[#2b2c2f]">
             <input
@@ -327,7 +327,7 @@ export function GmailInboxList({
         </div>
       </div>
 
-      <div className="grid border-b border-[#e0e0e0] bg-white dark:border-[#3c4043] dark:bg-[#202124] md:grid-cols-3">
+      <div className="grid border-b border-[#e0e0e0] bg-white dark:border-[#3c4043] dark:bg-[#1f1f1f] md:grid-cols-3">
         {tabs.map((item) => (
           <Link
             key={item.id}
@@ -363,10 +363,10 @@ export function GmailInboxList({
                 key={message.id}
                 className={`grid min-h-10 grid-cols-[28px_28px_minmax(120px,180px)_minmax(0,1fr)_92px] items-center gap-2 px-5 py-2 text-sm hover:shadow-[inset_1px_0_0_#dadce0,inset_-1px_0_0_#dadce0,0_1px_2px_rgba(60,64,67,.18),0_1px_3px_1px_rgba(60,64,67,.10)] ${
                   isSelected
-                    ? "bg-[#c2e7ff] dark:bg-[#253858]"
+                    ? "bg-[#c2e7ff] dark:bg-[#394457]"
                     : message.unread
-                      ? "bg-white font-semibold dark:bg-[#202124]"
-                      : "bg-[#f2f6fc] dark:bg-[#1b1c1f]"
+                      ? "bg-white font-semibold dark:bg-[#26272a]"
+                      : "bg-[#f2f6fc] dark:bg-[#232427]"
                 }`}
               >
                 <input

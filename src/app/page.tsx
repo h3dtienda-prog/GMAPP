@@ -233,10 +233,10 @@ function GmailTopBar({
   tab: string;
 }) {
   return (
-    <header className="flex h-16 items-center justify-between gap-4 bg-[#f6f8fc] px-5 dark:bg-[#111315]">
+    <header className="flex h-16 items-center justify-between gap-4 bg-[#f6f8fc] px-5 dark:bg-[#1f1f1f]">
       <form
         action="/"
-        className="flex h-12 w-full max-w-[720px] items-center gap-3 rounded-full bg-[#eaf1fb] px-4 text-[#5f6368] dark:bg-[#202124] dark:text-[#bdc1c6]"
+        className="flex h-12 w-full max-w-[720px] items-center gap-3 rounded-full bg-[#eaf1fb] px-4 text-[#5f6368] dark:bg-[#303134] dark:text-[#bdc1c6]"
       >
         {selectedAccount ? (
           <input type="hidden" name="account" value={selectedAccount} />
@@ -339,7 +339,7 @@ function GmailMessageReader({
   const redirectTo = buildMessageHref(message, selectedAccount);
 
   return (
-    <article className="min-h-0 flex-1 rounded-t-3xl bg-white dark:bg-[#202124]">
+    <article className="min-h-0 flex-1 rounded-t-3xl bg-white dark:bg-[#1f1f1f]">
       <div className="flex h-14 items-center justify-between border-b border-[#e0e0e0] px-5 text-[#5f6368] dark:border-[#3c4043] dark:text-[#bdc1c6]">
         <div className="flex items-center gap-2">
           <a
@@ -603,13 +603,13 @@ export default async function Home({ searchParams }: HomeProps) {
   ];
 
   return (
-    <main className="min-h-screen bg-[#f6f8fc] text-[#202124] dark:bg-[#111315] dark:text-[#e8eaed]">
+    <main className="min-h-screen bg-[#f6f8fc] text-[#202124] dark:bg-[#1f1f1f] dark:text-[#e8eaed]">
       <div className="grid min-h-screen grid-cols-1 lg:grid-cols-[var(--sidebar-width,280px)_minmax(0,1fr)]">
-        <aside className="relative max-h-screen overflow-y-auto bg-[#f6f8fc] px-3 py-4 dark:bg-[#111315] lg:sticky lg:top-0">
+        <aside className="relative max-h-screen overflow-y-auto bg-[#f6f8fc] px-3 py-4 dark:bg-[#1f1f1f] lg:sticky lg:top-0">
           <div className="flex items-start justify-between gap-3 px-2">
             <AppPreferences />
             <button
-              className="grid size-10 shrink-0 place-items-center rounded-full bg-white text-[#202124] shadow-sm dark:bg-[#202124] dark:text-[#e8eaed]"
+              className="grid size-10 shrink-0 place-items-center rounded-full bg-white text-[#202124] shadow-sm dark:bg-[#303134] dark:text-[#e8eaed]"
               aria-label="Notificaciones"
             >
               <Bell size={18} />
@@ -634,8 +634,8 @@ export default async function Home({ searchParams }: HomeProps) {
                   href={folder.href}
                   className={`flex h-9 items-center justify-between rounded-r-full px-4 text-sm ${
                     folder.active
-                      ? "bg-[#d3e3fd] font-semibold text-[#041e49] dark:bg-[#253858] dark:text-[#d3e3fd]"
-                      : "text-[#3c4043] hover:bg-[#eaf1fb] dark:text-[#e8eaed] dark:hover:bg-[#202124]"
+                      ? "bg-[#d3e3fd] font-semibold text-[#041e49] dark:bg-[#394457] dark:text-[#e8f0fe]"
+                      : "text-[#3c4043] hover:bg-[#eaf1fb] dark:text-[#e8eaed] dark:hover:bg-[#303134]"
                   }`}
                 >
                   <span className="flex items-center gap-4">
@@ -677,7 +677,7 @@ export default async function Home({ searchParams }: HomeProps) {
           <SidebarResizer />
         </aside>
 
-        <section className="flex min-w-0 flex-col bg-[#f6f8fc] dark:bg-[#111315]">
+        <section className="flex min-w-0 flex-col bg-[#f6f8fc] dark:bg-[#1f1f1f]">
           <GmailTopBar
             accounts={accounts}
             folder={activeFolder}

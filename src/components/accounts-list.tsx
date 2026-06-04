@@ -191,7 +191,7 @@ export function AccountsList({
 
   if (orderedAccounts.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed border-[#d8d2c6] bg-white p-4 text-sm text-[#5f6368] dark:border-[#3c4043] dark:bg-[#202124] dark:text-[#bdc1c6]">
+      <div className="rounded-lg border border-dashed border-[#d8d2c6] bg-white p-4 text-sm text-[#5f6368] dark:border-[#3c4043] dark:bg-[#26272a] dark:text-[#bdc1c6]">
         No hay cuentas conectadas todavia.
       </div>
     );
@@ -219,11 +219,11 @@ export function AccountsList({
                 reorder(draggedAddress, account.address);
               }
             }}
-            className={`rounded-[18px] border bg-white px-2.5 py-2 transition dark:bg-[#202124] ${
+            className={`rounded-[18px] border bg-white px-2.5 py-2 transition dark:bg-[#26272a] ${
               draggedAddress === account.address
                 ? "border-[#1a73e8] opacity-60"
                 : isSelected
-                  ? "border-[#1a73e8] shadow-sm dark:border-[#8ab4f8]"
+                  ? "border-[#1a73e8] shadow-sm dark:border-[#8ab4f8] dark:bg-[#303134]"
                   : "border-[#d8d2c6] dark:border-[#3c4043]"
             }`}
           >

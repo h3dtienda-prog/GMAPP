@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 
 :root {
   --background: #f4f1eb;
@@ -10,7 +11,7 @@
 }
 
 :root.dark {
-  --background: #111315;
+  --background: #1f1f1f;
   --foreground: #e8eaed;
 }
 
@@ -51,25 +52,32 @@ input:focus-visible {
   outline-offset: 2px;
 }
 
-.dark .bg-white {
-  background-color: #202124 !important;
-}
-
+.dark .bg-white,
+.dark .bg-\[\#f6f8fc\],
+.dark .bg-\[\#f8fafd\],
 .dark .bg-\[\#fffaf1\] {
-  background-color: #17191c !important;
+  background-color: #1f1f1f !important;
 }
 
-.dark .bg-\[\#f8fafd\] {
-  background-color: #15171a !important;
+.dark .bg-\[\#eaf1fb\] {
+  background-color: #303134 !important;
 }
 
-.dark .bg-\[\#f4f1eb\] {
-  background-color: #111315 !important;
+.dark .bg-\[\#f2f6fc\] {
+  background-color: #26272a !important;
+}
+
+.dark .bg-\[\#c2e7ff\] {
+  background-color: #2d5f7a !important;
+  color: #e8f0fe !important;
 }
 
 .dark .border-\[\#d8d2c6\],
-.dark .divide-\[\#d8d2c6\] > :not([hidden]) ~ :not([hidden]) {
-  border-color: #303134 !important;
+.dark .border-\[\#dadce0\],
+.dark .border-\[\#e0e0e0\],
+.dark .divide-\[\#d8d2c6\] > :not([hidden]) ~ :not([hidden]),
+.dark .divide-\[\#e8eaed\] > :not([hidden]) ~ :not([hidden]) {
+  border-color: #3c4043 !important;
 }
 
 .dark .text-\[\#202124\],
@@ -79,10 +87,14 @@ input:focus-visible {
 }
 
 .dark .text-\[\#5f6368\],
+.dark .text-\[\#8a9099\],
+.dark .placeholder\:text-\[\#5f6368\]::placeholder,
 .dark .placeholder\:text-\[\#7d858c\]::placeholder {
   color: #bdc1c6 !important;
 }
 
-.dark input {
+.dark input,
+.dark select {
   color: #e8eaed;
+  background-color: #303134;
 }
