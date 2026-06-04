@@ -45,6 +45,9 @@ export function AccountSettingsEditor({
   );
   const [savingAccount, setSavingAccount] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [messageTone, setMessageTone] = useState<"success" | "warning" | "error">(
+    "success",
+  );
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
@@ -109,6 +112,7 @@ export function AccountSettingsEditor({
     }
 
     setMessage(null);
+    setMessageTone("success");
     setSavingAccount(account.address);
     window.localStorage.setItem(
       accountProfileKey(account.address),
@@ -134,16 +138,21 @@ export function AccountSettingsEditor({
       const body = (await response.json().catch(() => null)) as {
         error?: string;
       } | null;
-      setMessage(
+      const isMissingMigration =
         body?.error?.includes("display_name") ||
-          body?.error?.includes("logo_url") ||
-          body?.error?.includes("migracion")
-          ? "Guardado en este navegador. Falta aplicar la migracion de Supabase para guardarlo en la base."
+        body?.error?.includes("logo_url") ||
+        body?.error?.includes("migracion");
+
+      setMessageTone(isMissingMigration ? "warning" : "error");
+      setMessage(
+        isMissingMigration
+          ? "Guardado en este navegador. Para que quede en la base, aplica la migracion de Supabase."
           : body?.error ?? "No se pudo guardar la cuenta.",
       );
       return;
     }
 
+    setMessageTone("success");
     setMessage("Cuenta guardada.");
     startTransition(() => {
       router.refresh();
@@ -159,7 +168,15 @@ export function AccountSettingsEditor({
           tarjetas de la barra izquierda.
         </p>
         {message ? (
-          <p className="mt-4 rounded-lg bg-[#fce8e6] px-3 py-2 text-sm font-medium text-[#a50e0e]">
+          <p
+            className={`mt-4 rounded-lg px-3 py-2 text-sm font-medium ${
+              messageTone === "success"
+                ? "bg-[#e6f4ea] text-[#137333]"
+                : messageTone === "warning"
+                  ? "bg-[#fef7e0] text-[#8b5e00]"
+                  : "bg-[#fce8e6] text-[#a50e0e]"
+            }`}
+          >
             {message}
           </p>
         ) : null}

@@ -167,7 +167,7 @@ export function AccountsList({ accounts, selectedAccount }: AccountsListProps) {
               reorder(draggedAddress, account.address);
             }
           }}
-          className={`rounded-[18px] border bg-white p-2.5 transition ${
+          className={`rounded-[18px] border bg-white px-2.5 py-2 transition ${
             draggedAddress === account.address
               ? "border-[#1a73e8] opacity-60"
               : selectedAccount === account.address
@@ -178,7 +178,7 @@ export function AccountsList({ accounts, selectedAccount }: AccountsListProps) {
           <div className="flex items-start gap-2">
             <button
               type="button"
-              className="mt-1 grid size-7 shrink-0 cursor-grab place-items-center rounded-full text-[#5f6368] hover:bg-[#f1f3f4]"
+              className="mt-1 grid size-6 shrink-0 cursor-grab place-items-center rounded-full text-[#5f6368] hover:bg-[#f1f3f4]"
               aria-label={`Arrastrar ${account.address}`}
             >
               <GripVertical size={16} />
@@ -191,10 +191,10 @@ export function AccountsList({ accounts, selectedAccount }: AccountsListProps) {
                 <img
                   src={account.logoUrl}
                   alt=""
-                  className="size-10 rounded-full border border-[#d8d2c6] object-cover"
+                className="size-9 rounded-full border border-[#d8d2c6] object-cover"
                 />
               ) : (
-                <div className="grid size-10 place-items-center rounded-full bg-[#e8f0fe] text-sm font-semibold text-[#174ea6]">
+                <div className="grid size-9 place-items-center rounded-full bg-[#e8f0fe] text-sm font-semibold text-[#174ea6]">
                   {getInitials(account.displayName)}
                 </div>
               )}
@@ -211,39 +211,30 @@ export function AccountsList({ accounts, selectedAccount }: AccountsListProps) {
               >
                 {account.displayName}
               </Link>
-            </div>
-            <span
-              className={`shrink-0 rounded-full px-2 py-1 text-[11px] font-semibold ${
-                isConnected(account)
-                  ? "bg-[#e6f4ea] text-[#137333]"
-                  : "bg-[#fce8e6] text-[#a50e0e]"
-              }`}
-            >
-              {account.status}
-            </span>
-          </div>
-          <div className="mt-3 flex items-center justify-between gap-2 text-xs text-[#5f6368]">
-            <span>{account.provider}</span>
-            <div className="flex items-center gap-1">
-              <span>{account.threadsTotal.toLocaleString("es")} hilos</span>
-              <button
-                type="button"
-                className="grid size-7 place-items-center rounded-full hover:bg-[#f1f3f4] disabled:opacity-35"
-                disabled={index === 0 || isPending}
-                onClick={() => move(account.address, -1)}
-                aria-label={`Subir ${account.address}`}
-              >
-                <ChevronUp size={14} />
-              </button>
-              <button
-                type="button"
-                className="grid size-7 place-items-center rounded-full hover:bg-[#f1f3f4] disabled:opacity-35"
-                disabled={index === orderedAccounts.length - 1 || isPending}
-                onClick={() => move(account.address, 1)}
-                aria-label={`Bajar ${account.address}`}
-              >
-                <ChevronDown size={14} />
-              </button>
+              <div className="mt-1 flex items-center justify-between gap-2 text-xs text-[#5f6368]">
+                <span>{account.provider}</span>
+                <div className="flex items-center gap-1">
+                  <span>{account.threadsTotal.toLocaleString("es")} hilos</span>
+                  <button
+                    type="button"
+                    className="grid size-6 place-items-center rounded-full hover:bg-[#f1f3f4] disabled:opacity-35"
+                    disabled={index === 0 || isPending}
+                    onClick={() => move(account.address, -1)}
+                    aria-label={`Subir ${account.address}`}
+                  >
+                    <ChevronUp size={13} />
+                  </button>
+                  <button
+                    type="button"
+                    className="grid size-6 place-items-center rounded-full hover:bg-[#f1f3f4] disabled:opacity-35"
+                    disabled={index === orderedAccounts.length - 1 || isPending}
+                    onClick={() => move(account.address, 1)}
+                    aria-label={`Bajar ${account.address}`}
+                  >
+                    <ChevronDown size={13} />
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
