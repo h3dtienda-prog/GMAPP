@@ -2,9 +2,8 @@
 
 /* eslint-disable @next/next/no-img-element */
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { ChevronDown, ChevronUp, GripVertical } from "lucide-react";
 import type { GmailDashboardAccount } from "@/lib/gmail";
 
@@ -30,8 +29,10 @@ function accountProfileKey(account: string) {
   return `mails-account-profile:${account}`;
 }
 
+const accountOrderKey = "mails-account-order";
+
 function applyLocalProfiles(accounts: GmailDashboardAccount[]) {
-  return accounts.map((account) => {
+  const profiledAccounts = accounts.map((account) => {
     const storedProfile = window.localStorage.getItem(
       accountProfileKey(account.address),
     );
@@ -55,14 +56,36 @@ function applyLocalProfiles(accounts: GmailDashboardAccount[]) {
       return account;
     }
   });
+
+  const storedOrder = window.localStorage.getItem(accountOrderKey);
+
+  if (!storedOrder) {
+    return profiledAccounts;
+  }
+
+  try {
+    const orderedAddresses = JSON.parse(storedOrder) as string[];
+    const orderMap = new Map(
+      orderedAddresses.map((address, index) => [address, index]),
+    );
+
+    return [...profiledAccounts].sort(
+      (first, second) =>
+        (orderMap.get(first.address) ?? Number.MAX_SAFE_INTEGER) -
+          (orderMap.get(second.address) ?? Number.MAX_SAFE_INTEGER) ||
+        first.sortOrder - second.sortOrder ||
+        first.address.localeCompare(second.address),
+    );
+  } catch {
+    return profiledAccounts;
+  }
 }
 
 export function AccountsList({ accounts, selectedAccount }: AccountsListProps) {
-  const router = useRouter();
   const [orderedAccounts, setOrderedAccounts] = useState(accounts);
   const [draggedAddress, setDraggedAddress] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const [isSavingOrder, setIsSavingOrder] = useState(false);
 
   useEffect(() => {
     function syncProfiles() {
@@ -79,6 +102,11 @@ export function AccountsList({ accounts, selectedAccount }: AccountsListProps) {
 
   async function persistOrder(nextAccounts: GmailDashboardAccount[]) {
     setSaveError(null);
+    setIsSavingOrder(true);
+    window.localStorage.setItem(
+      accountOrderKey,
+      JSON.stringify(nextAccounts.map((account) => account.address)),
+    );
 
     const response = await fetch("/api/accounts/order", {
       method: "POST",
@@ -89,18 +117,19 @@ export function AccountsList({ accounts, selectedAccount }: AccountsListProps) {
         accounts: nextAccounts.map((account) => account.address),
       }),
     });
+    setIsSavingOrder(false);
 
     if (!response.ok) {
       const body = (await response.json().catch(() => null)) as {
         error?: string;
       } | null;
-      setSaveError(body?.error ?? "No se pudo guardar el orden.");
+      setSaveError(
+        body?.error?.includes("sort_order")
+          ? "Orden guardado en este navegador. Falta aplicar la migracion de Supabase para guardarlo en la base."
+          : body?.error ?? "No se pudo guardar el orden.",
+      );
       return;
     }
-
-    startTransition(() => {
-      router.refresh();
-    });
   }
 
   function reorder(fromAddress: string, toAddress: string) {
@@ -218,7 +247,7 @@ export function AccountsList({ accounts, selectedAccount }: AccountsListProps) {
                   <button
                     type="button"
                     className="grid size-6 place-items-center rounded-full hover:bg-[#f1f3f4] disabled:opacity-35"
-                    disabled={index === 0 || isPending}
+                    disabled={index === 0 || isSavingOrder}
                     onClick={() => move(account.address, -1)}
                     aria-label={`Subir ${account.address}`}
                   >
@@ -227,7 +256,7 @@ export function AccountsList({ accounts, selectedAccount }: AccountsListProps) {
                   <button
                     type="button"
                     className="grid size-6 place-items-center rounded-full hover:bg-[#f1f3f4] disabled:opacity-35"
-                    disabled={index === orderedAccounts.length - 1 || isPending}
+                    disabled={index === orderedAccounts.length - 1 || isSavingOrder}
                     onClick={() => move(account.address, 1)}
                     aria-label={`Bajar ${account.address}`}
                   >
