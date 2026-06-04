@@ -3,7 +3,8 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { useEffect, useState } from "react";
-import { Moon, Save, Settings, Sun, X } from "lucide-react";
+import Link from "next/link";
+import { Moon, Settings, Sun } from "lucide-react";
 
 const defaults = {
   appName: "MAILS",
@@ -28,64 +29,54 @@ function applyFavicon(faviconUrl: string) {
   favicon.href = faviconUrl || "/favicon.ico";
 }
 
+function readPreferences() {
+  return {
+    appName: window.localStorage.getItem("mails-app-name") ?? defaults.appName,
+    appLogoUrl:
+      window.localStorage.getItem("mails-app-logo-url") ?? defaults.appLogoUrl,
+    faviconUrl:
+      window.localStorage.getItem("mails-app-favicon-url") ??
+      defaults.faviconUrl,
+    theme: window.localStorage.getItem("mails-app-theme") ?? defaults.theme,
+  };
+}
+
 export function AppPreferences() {
-  const [open, setOpen] = useState(false);
   const [appName, setAppName] = useState(defaults.appName);
   const [appLogoUrl, setAppLogoUrl] = useState(defaults.appLogoUrl);
-  const [faviconUrl, setFaviconUrl] = useState(defaults.faviconUrl);
   const [theme, setTheme] = useState(defaults.theme);
 
   useEffect(() => {
-    window.requestAnimationFrame(() => {
-      const nextName =
-        window.localStorage.getItem("mails-app-name") ?? defaults.appName;
-      const nextLogo =
-        window.localStorage.getItem("mails-app-logo-url") ??
-        defaults.appLogoUrl;
-      const nextFavicon =
-        window.localStorage.getItem("mails-app-favicon-url") ??
-        defaults.faviconUrl;
-      const nextTheme =
-        window.localStorage.getItem("mails-app-theme") ?? defaults.theme;
+    function syncPreferences() {
+      const nextPreferences = readPreferences();
 
-      setAppName(nextName);
-      setAppLogoUrl(nextLogo);
-      setFaviconUrl(nextFavicon);
-      setTheme(nextTheme);
-      document.title = `${nextName} - Centro de correo`;
-      applyTheme(nextTheme);
-      applyFavicon(nextFavicon);
-    });
+      setAppName(nextPreferences.appName);
+      setAppLogoUrl(nextPreferences.appLogoUrl);
+      setTheme(nextPreferences.theme);
+      document.title = `${nextPreferences.appName} - Centro de correo`;
+      applyTheme(nextPreferences.theme);
+      applyFavicon(nextPreferences.faviconUrl);
+    }
+
+    window.requestAnimationFrame(syncPreferences);
+    window.addEventListener("mails-preferences-updated", syncPreferences);
+
+    return () => {
+      window.removeEventListener("mails-preferences-updated", syncPreferences);
+    };
   }, []);
-
-  function savePreferences() {
-    const nextName = appName.trim() || defaults.appName;
-    const nextLogo = appLogoUrl.trim();
-    const nextFavicon = faviconUrl.trim();
-
-    window.localStorage.setItem("mails-app-name", nextName);
-    window.localStorage.setItem("mails-app-logo-url", nextLogo);
-    window.localStorage.setItem("mails-app-favicon-url", nextFavicon);
-    window.localStorage.setItem("mails-app-theme", theme);
-    setAppName(nextName);
-    setAppLogoUrl(nextLogo);
-    setFaviconUrl(nextFavicon);
-    document.title = `${nextName} - Centro de correo`;
-    applyTheme(theme);
-    applyFavicon(nextFavicon);
-    setOpen(false);
-  }
 
   function toggleTheme() {
     const nextTheme = theme === "dark" ? "light" : "dark";
 
-    setTheme(nextTheme);
     window.localStorage.setItem("mails-app-theme", nextTheme);
+    setTheme(nextTheme);
     applyTheme(nextTheme);
+    window.dispatchEvent(new Event("mails-preferences-updated"));
   }
 
   return (
-    <div className="relative min-w-0 flex-1">
+    <div className="min-w-0 flex-1">
       <div className="flex min-w-0 items-center gap-3">
         {appLogoUrl ? (
           <img
@@ -109,14 +100,13 @@ export function AppPreferences() {
       </div>
 
       <div className="mt-3 flex gap-2">
-        <button
-          type="button"
+        <Link
+          href="/?settings=appearance"
           className="grid size-9 place-items-center rounded-full border border-[#d8d2c6] bg-white text-[#202124] shadow-sm"
-          onClick={() => setOpen(true)}
-          aria-label="Personalizar app"
+          aria-label="Configuracion"
         >
           <Settings size={17} />
-        </button>
+        </Link>
         <button
           type="button"
           className="grid size-9 place-items-center rounded-full border border-[#d8d2c6] bg-white text-[#202124] shadow-sm"
@@ -126,58 +116,6 @@ export function AppPreferences() {
           {theme === "dark" ? <Sun size={17} /> : <Moon size={17} />}
         </button>
       </div>
-
-      {open ? (
-        <div className="absolute left-0 top-full z-20 mt-3 w-[min(22rem,calc(100vw-2rem))] rounded-2xl border border-[#d8d2c6] bg-white p-4 shadow-xl">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="text-sm font-semibold">Personalizar app</h2>
-            <button
-              type="button"
-              className="grid size-8 place-items-center rounded-full hover:bg-[#f1f3f4]"
-              onClick={() => setOpen(false)}
-              aria-label="Cerrar"
-            >
-              <X size={16} />
-            </button>
-          </div>
-          <div className="mt-4 space-y-3">
-            <label className="block text-xs font-semibold text-[#5f6368]">
-              Nombre
-              <input
-                className="mt-1 h-10 w-full rounded-md border border-[#d8d2c6] bg-white px-3 text-sm font-normal text-[#202124] outline-none"
-                value={appName}
-                onChange={(event) => setAppName(event.target.value)}
-              />
-            </label>
-            <label className="block text-xs font-semibold text-[#5f6368]">
-              Logo de la app
-              <input
-                className="mt-1 h-10 w-full rounded-md border border-[#d8d2c6] bg-white px-3 text-sm font-normal text-[#202124] outline-none"
-                value={appLogoUrl}
-                onChange={(event) => setAppLogoUrl(event.target.value)}
-                placeholder="https://..."
-              />
-            </label>
-            <label className="block text-xs font-semibold text-[#5f6368]">
-              Icono de pestana
-              <input
-                className="mt-1 h-10 w-full rounded-md border border-[#d8d2c6] bg-white px-3 text-sm font-normal text-[#202124] outline-none"
-                value={faviconUrl}
-                onChange={(event) => setFaviconUrl(event.target.value)}
-                placeholder="https://..."
-              />
-            </label>
-            <button
-              type="button"
-              className="flex h-10 w-full items-center justify-center gap-2 rounded-full bg-[#1a73e8] px-4 text-sm font-semibold text-white"
-              onClick={savePreferences}
-            >
-              <Save size={16} />
-              Guardar
-            </button>
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }

@@ -15,6 +15,20 @@ function normalizeOptionalText(value: string | undefined) {
   return trimmed ? trimmed : null;
 }
 
+function isAllowedLogoValue(value: string) {
+  if (value.startsWith("data:image/")) {
+    return value.length <= 350_000;
+  }
+
+  try {
+    const parsedUrl = new URL(value);
+
+    return ["http:", "https:"].includes(parsedUrl.protocol);
+  } catch {
+    return false;
+  }
+}
+
 export async function POST(request: NextRequest) {
   const supabase = getSupabaseAdminClient();
 
@@ -37,19 +51,11 @@ export async function POST(request: NextRequest) {
 
   const logoUrl = normalizeOptionalText(body.logoUrl);
 
-  if (logoUrl) {
-    try {
-      const parsedUrl = new URL(logoUrl);
-
-      if (!["http:", "https:"].includes(parsedUrl.protocol)) {
-        throw new Error("Invalid protocol");
-      }
-    } catch {
-      return NextResponse.json(
-        { error: "El logo debe ser una URL valida http o https." },
-        { status: 400 },
-      );
-    }
+  if (logoUrl && !isAllowedLogoValue(logoUrl)) {
+    return NextResponse.json(
+      { error: "El logo debe ser una imagen subida o una URL http/https." },
+      { status: 400 },
+    );
   }
 
   const { error } = await supabase

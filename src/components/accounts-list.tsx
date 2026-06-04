@@ -11,6 +11,7 @@ import {
   ChevronUp,
   GripVertical,
   Pencil,
+  Upload,
   X,
 } from "lucide-react";
 import type { GmailDashboardAccount } from "@/lib/gmail";
@@ -27,6 +28,10 @@ function getInitials(value: string) {
     .filter(Boolean);
 
   return (parts[0]?.slice(0, 2) ?? "GM").toUpperCase();
+}
+
+function isConnected(account: GmailDashboardAccount) {
+  return account.status.toLowerCase().includes("conect");
 }
 
 export function AccountsList({ accounts, selectedAccount }: AccountsListProps) {
@@ -112,6 +117,18 @@ export function AccountsList({ accounts, selectedAccount }: AccountsListProps) {
     setDraftLogo(account.logoUrl ?? "");
   }
 
+  function handleLogoUpload(file: File | undefined) {
+    if (!file) {
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setDraftLogo(String(reader.result ?? ""));
+    };
+    reader.readAsDataURL(file);
+  }
+
   function reorder(fromAddress: string, toAddress: string) {
     if (fromAddress === toAddress) {
       return;
@@ -179,7 +196,7 @@ export function AccountsList({ accounts, selectedAccount }: AccountsListProps) {
                 reorder(draggedAddress, account.address);
               }
             }}
-            className={`rounded-2xl border bg-white p-3 transition ${
+            className={`rounded-[18px] border bg-white p-2.5 transition ${
               draggedAddress === account.address
                 ? "border-[#1a73e8] opacity-60"
                 : selectedAccount === account.address
@@ -196,9 +213,9 @@ export function AccountsList({ accounts, selectedAccount }: AccountsListProps) {
                 <GripVertical size={16} />
               </button>
               <div className="relative shrink-0">
-                {account.logoUrl ? (
+                {(isEditing ? draftLogo : account.logoUrl) ? (
                   <img
-                    src={account.logoUrl}
+                    src={isEditing ? draftLogo : (account.logoUrl ?? "")}
                     alt=""
                     className="size-10 rounded-full border border-[#d8d2c6] object-cover"
                   />
@@ -207,7 +224,11 @@ export function AccountsList({ accounts, selectedAccount }: AccountsListProps) {
                     {getInitials(account.displayName)}
                   </div>
                 )}
-                <span className="absolute -right-0.5 -top-0.5 size-3 rounded-full border-2 border-white bg-[#188038]" />
+                <span
+                  className={`absolute -right-0.5 -top-0.5 size-3 rounded-full border-2 border-white ${
+                    isConnected(account) ? "bg-[#188038]" : "bg-[#d93025]"
+                  }`}
+                />
               </div>
               <div className="min-w-0 flex-1">
                 {isEditing ? (
@@ -218,9 +239,21 @@ export function AccountsList({ accounts, selectedAccount }: AccountsListProps) {
                       onChange={(event) => setDraftName(event.target.value)}
                       placeholder="Nombre visible"
                     />
+                    <label className="flex h-9 cursor-pointer items-center justify-center gap-2 rounded-md border border-[#d8d2c6] bg-white px-2 text-xs text-[#5f6368] hover:bg-[#f8fafd]">
+                      <Upload size={14} />
+                      Subir logo
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="sr-only"
+                        onChange={(event) =>
+                          handleLogoUpload(event.target.files?.[0])
+                        }
+                      />
+                    </label>
                     <input
                       className="h-9 w-full rounded-md border border-[#d8d2c6] bg-white px-2 text-xs outline-none"
-                      value={draftLogo}
+                      value={draftLogo.startsWith("data:image/") ? "" : draftLogo}
                       onChange={(event) => setDraftLogo(event.target.value)}
                       placeholder="URL del logo"
                     />
@@ -233,12 +266,6 @@ export function AccountsList({ accounts, selectedAccount }: AccountsListProps) {
                     >
                       {account.displayName}
                     </Link>
-                    <p className="mt-1 truncate text-xs text-[#5f6368]">
-                      {account.address}
-                    </p>
-                    <p className="mt-1 truncate text-xs text-[#5f6368]">
-                      {account.messagesTotal.toLocaleString("es")} mensajes
-                    </p>
                   </>
                 )}
               </div>
