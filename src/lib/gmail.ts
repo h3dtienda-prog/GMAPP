@@ -232,11 +232,25 @@ export async function getGmailDashboardData(selectedAccount?: string) {
   for (const row of visibleRows) {
     try {
       const payload = decryptGmailPayload(row.encrypted_payload);
-      const tokens = await ensureFreshGmailTokens(payload);
-      const recentMessages = await getRecentGmailMessages(
-        row.email_address,
-        tokens.access_token,
-      );
+      let tokens = await ensureFreshGmailTokens(payload);
+      let recentMessages: GmailDashboardMessage[];
+
+      try {
+        recentMessages = await getRecentGmailMessages(
+          row.email_address,
+          tokens.access_token,
+        );
+      } catch (error) {
+        if (!isInvalidGoogleCredentialsError(error) || !payload.tokens.refresh_token) {
+          throw error;
+        }
+
+        tokens = await refreshGmailAccessToken(payload.tokens.refresh_token);
+        recentMessages = await getRecentGmailMessages(
+          row.email_address,
+          tokens.access_token,
+        );
+      }
 
       messages.push(...recentMessages);
 
@@ -378,7 +392,7 @@ async function selectGmailConnectionRows() {
 }
 
 async function ensureFreshGmailTokens(payload: DecryptedGmailPayload) {
-  if (!payload.expiresAt || new Date(payload.expiresAt).getTime() > Date.now()) {
+  if (payload.expiresAt && new Date(payload.expiresAt).getTime() > Date.now()) {
     return payload.tokens;
   }
 
@@ -387,6 +401,18 @@ async function ensureFreshGmailTokens(payload: DecryptedGmailPayload) {
   }
 
   return refreshGmailAccessToken(payload.tokens.refresh_token);
+}
+
+function isInvalidGoogleCredentialsError(error: unknown) {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  return (
+    error.message.includes("Invalid Credentials") ||
+    error.message.includes("UNAUTHENTICATED") ||
+    error.message.includes("\"code\": 401")
+  );
 }
 
 async function refreshGmailAccessToken(refreshToken: string) {
