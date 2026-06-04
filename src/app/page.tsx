@@ -4,7 +4,6 @@ import {
   ChevronLeft,
   Clock3,
   ExternalLink,
-  Grid3X3,
   HelpCircle,
   Home as HomeIcon,
   Inbox,
@@ -264,13 +263,14 @@ function GmailTopBar({
         </button>
       </form>
       <div className="hidden items-center gap-2 text-[#3c4043] md:flex">
-        <button
+        <Link
+          href="/?settings=help"
           className="grid size-10 place-items-center rounded-full hover:bg-[#e8eaed]"
           aria-label="Ayuda"
           title="Ayuda"
         >
           <HelpCircle size={20} />
-        </button>
+        </Link>
         <Link
           href="/?settings=appearance"
           className="grid size-10 place-items-center rounded-full hover:bg-[#e8eaed]"
@@ -279,13 +279,6 @@ function GmailTopBar({
         >
           <Settings size={20} />
         </Link>
-        <button
-          className="grid size-10 place-items-center rounded-full hover:bg-[#e8eaed]"
-          aria-label="Aplicaciones"
-          title="Aplicaciones"
-        >
-          <Grid3X3 size={20} />
-        </button>
         <HeaderIdentity accounts={accounts} selectedAccount={selectedAccount} />
       </div>
     </header>

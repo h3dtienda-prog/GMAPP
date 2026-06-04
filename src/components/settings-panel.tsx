@@ -4,7 +4,16 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ImageUp, MonitorCog, Palette, Save, UsersRound } from "lucide-react";
+import {
+  HelpCircle,
+  ImageUp,
+  MailCheck,
+  MonitorCog,
+  Palette,
+  Save,
+  ServerCog,
+  UsersRound,
+} from "lucide-react";
 import { AccountSettingsEditor } from "@/components/account-settings-editor";
 import type { GmailDashboardAccount } from "@/lib/gmail";
 
@@ -17,6 +26,7 @@ const sections = [
   { id: "appearance", label: "Apariencia", icon: Palette },
   { id: "accounts", label: "Cuentas", icon: UsersRound },
   { id: "layout", label: "Panel lateral", icon: MonitorCog },
+  { id: "help", label: "Ayuda", icon: HelpCircle },
 ];
 
 const defaults = {
@@ -236,6 +246,106 @@ export function SettingsPanel({
                 Arrastra el borde derecho de la columna izquierda para ajustar el
                 ancho. El tamano queda guardado en este navegador.
               </p>
+            </div>
+          ) : null}
+
+          {activeSection === "help" ? (
+            <div className="max-w-4xl space-y-5">
+              <div className="rounded-2xl border border-[#d8d2c6] p-5">
+                <div className="flex items-start gap-3">
+                  <MailCheck className="mt-1 text-[#1a73e8]" size={22} />
+                  <div>
+                    <h3 className="text-lg font-semibold">
+                      Conexion de cuentas Gmail
+                    </h3>
+                    <p className="mt-2 text-sm leading-6 text-[#5f6368]">
+                      Cada cuenta Gmail se conecta con OAuth de Google. La app
+                      guarda los tokens cifrados en Supabase y usa Gmail API
+                      para leer mensajes, etiquetas y ejecutar acciones como
+                      archivar, destacar, marcar como leido o mover a etiquetas.
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-4 grid gap-3 md:grid-cols-3">
+                  <div className="rounded-xl bg-[#f8fafd] p-4">
+                    <p className="text-sm font-semibold">Agregar una cuenta</p>
+                    <p className="mt-2 text-sm text-[#5f6368]">
+                      Usa Conectar Gmail, elegi la cuenta y acepta todos los
+                      permisos solicitados.
+                    </p>
+                  </div>
+                  <div className="rounded-xl bg-[#f8fafd] p-4">
+                    <p className="text-sm font-semibold">Si falta permiso</p>
+                    <p className="mt-2 text-sm text-[#5f6368]">
+                      Reconecta esa cuenta. Google entrega un token nuevo con
+                      los permisos actualizados.
+                    </p>
+                  </div>
+                  <div className="rounded-xl bg-[#f8fafd] p-4">
+                    <p className="text-sm font-semibold">Modo prueba Google</p>
+                    <p className="mt-2 text-sm text-[#5f6368]">
+                      Mientras la app no este verificada, agrega cada email como
+                      test user en Google Cloud.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-[#d8d2c6] p-5">
+                <div className="flex items-start gap-3">
+                  <ServerCog className="mt-1 text-[#188038]" size={22} />
+                  <div>
+                    <h3 className="text-lg font-semibold">
+                      Como seguir con cuentas IMAP
+                    </h3>
+                    <p className="mt-2 text-sm leading-6 text-[#5f6368]">
+                      El siguiente paso es agregar un conector IMAP para cuentas
+                      que no sean Gmail. Para eso la app necesitara guardar por
+                      cuenta: servidor IMAP, puerto, seguridad SSL/TLS, usuario,
+                      contrasena o app password, nombre visible y logo.
+                    </p>
+                  </div>
+                </div>
+                <ol className="mt-4 space-y-3 text-sm text-[#3c4043]">
+                  <li className="rounded-xl bg-[#f8fafd] p-4">
+                    <strong>1. Configuracion de cuenta:</strong> crear un
+                    formulario IMAP con host, puerto, usuario y clave segura.
+                  </li>
+                  <li className="rounded-xl bg-[#f8fafd] p-4">
+                    <strong>2. Prueba de conexion:</strong> validar credenciales
+                    antes de guardarlas cifradas en Supabase.
+                  </li>
+                  <li className="rounded-xl bg-[#f8fafd] p-4">
+                    <strong>3. Sincronizacion:</strong> leer carpetas, mensajes
+                    recientes, no leidos y etiquetas/carpetas propias de cada
+                    proveedor.
+                  </li>
+                  <li className="rounded-xl bg-[#f8fafd] p-4">
+                    <strong>4. Acciones:</strong> mover, archivar, marcar leido
+                    y responder segun las capacidades del servidor IMAP/SMTP.
+                  </li>
+                </ol>
+              </div>
+
+              <div className="rounded-2xl border border-[#d8d2c6] p-5">
+                <h3 className="text-lg font-semibold">Notas utiles</h3>
+                <ul className="mt-3 space-y-2 text-sm leading-6 text-[#5f6368]">
+                  <li>
+                    Para mas de 10 cuentas en el navegador, Google puede pedir
+                    cerrar sesion en otras cuentas; eso es una regla del login
+                    de Google, no de esta app.
+                  </li>
+                  <li>
+                    Los logos, nombres visibles y orden de tarjetas se pueden
+                    personalizar desde Configuracion &gt; Cuentas.
+                  </li>
+                  <li>
+                    Para que nombre, logo y orden se guarden en Supabase, la
+                    tabla necesita las columnas display_name, logo_url y
+                    sort_order.
+                  </li>
+                </ul>
+              </div>
             </div>
           ) : null}
         </div>
