@@ -39,6 +39,10 @@ function isAllowedImageValue(value: string) {
   }
 }
 
+function isMissingAppTitleColumn(message: string) {
+  return message.toLowerCase().includes("app_title");
+}
+
 export async function GET() {
   const supabase = getSupabaseAdminClient();
 
@@ -51,6 +55,26 @@ export async function GET() {
     .select("app_name, app_title, app_logo_url, favicon_url, theme")
     .eq("id", "default")
     .maybeSingle();
+
+  if (error && isMissingAppTitleColumn(error.message)) {
+    const { data: fallbackData, error: fallbackError } = await supabase
+      .from("app_preferences")
+      .select("app_name, app_logo_url, favicon_url, theme")
+      .eq("id", "default")
+      .maybeSingle();
+
+    if (fallbackError || !fallbackData) {
+      return NextResponse.json(defaults);
+    }
+
+    return NextResponse.json({
+      appName: fallbackData.app_name ?? defaults.appName,
+      appTitle: defaults.appTitle,
+      appLogoUrl: fallbackData.app_logo_url ?? defaults.appLogoUrl,
+      faviconUrl: fallbackData.favicon_url ?? defaults.faviconUrl,
+      theme: fallbackData.theme ?? defaults.theme,
+    });
+  }
 
   if (error || !data) {
     return NextResponse.json(defaults);
@@ -100,20 +124,41 @@ export async function POST(request: NextRequest) {
   }
 
   const theme = body.theme === "dark" ? "dark" : "light";
-  const { error } = await supabase.from("app_preferences").upsert(
-    {
-      id: "default",
-      app_name: body.appName?.trim() || defaults.appName,
-      app_title: body.appTitle?.trim() || defaults.appTitle,
-      app_logo_url: appLogoUrl,
-      favicon_url: faviconUrl,
-      theme,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: "id" },
-  );
+  const updatedAt = new Date().toISOString();
+  const payload = {
+    id: "default",
+    app_name: body.appName?.trim() || defaults.appName,
+    app_title: body.appTitle?.trim() || defaults.appTitle,
+    app_logo_url: appLogoUrl,
+    favicon_url: faviconUrl,
+    theme,
+    updated_at: updatedAt,
+  };
+  const { error } = await supabase
+    .from("app_preferences")
+    .upsert(payload, { onConflict: "id" });
 
   if (error) {
+    if (isMissingAppTitleColumn(error.message)) {
+      const { error: fallbackError } = await supabase
+        .from("app_preferences")
+        .upsert(
+          {
+            id: "default",
+            app_name: payload.app_name,
+            app_logo_url: payload.app_logo_url,
+            favicon_url: payload.favicon_url,
+            theme: payload.theme,
+            updated_at: updatedAt,
+          },
+          { onConflict: "id" },
+        );
+
+      if (!fallbackError) {
+        return NextResponse.json({ ok: true, appTitleFallback: true });
+      }
+    }
+
     return NextResponse.json(
       {
         error: error.message.includes("app_preferences")

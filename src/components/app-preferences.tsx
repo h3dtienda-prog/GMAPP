@@ -3,6 +3,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Moon, Sun } from "lucide-react";
 
 const defaults = {
@@ -119,7 +120,12 @@ export function AppPreferences() {
 
   return (
     <div className="min-w-0 flex-1">
-      <div className="flex min-w-0 items-center gap-3">
+      <Link
+        href="/"
+        className="flex min-w-0 items-center gap-3 rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#1a73e8]"
+        aria-label="Ir a Bandeja unificada"
+        title="Ir a Bandeja unificada"
+      >
         {appLogoUrl ? (
           <img
             src={appLogoUrl}
@@ -139,7 +145,7 @@ export function AppPreferences() {
             {appTitle}
           </h1>
         </div>
-      </div>
+      </Link>
     </div>
   );
 }

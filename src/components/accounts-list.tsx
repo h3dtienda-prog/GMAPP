@@ -12,6 +12,7 @@ type AccountsListProps = {
   activeLabel?: string;
   labels: GmailDashboardLabel[];
   selectedAccount?: string;
+  showLabels?: boolean;
 };
 
 function getInitials(value: string) {
@@ -98,6 +99,7 @@ export function AccountsList({
   activeLabel,
   labels,
   selectedAccount,
+  showLabels = true,
 }: AccountsListProps) {
   const [orderedAccounts, setOrderedAccounts] = useState(accounts);
   const [draggedAddress, setDraggedAddress] = useState<string | null>(null);
@@ -290,7 +292,7 @@ export function AccountsList({
               </div>
             </div>
 
-            {isSelected ? (
+            {showLabels && isSelected ? (
               <div className="mt-2 border-t border-[#ece7dd] pt-2 dark:border-[#3c4043]">
                 <div className="mb-1 flex items-center justify-between px-2 text-xs font-semibold text-[#3c4043] dark:text-[#e8eaed]">
                   <span>Etiquetas</span>

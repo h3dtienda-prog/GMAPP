@@ -6,7 +6,6 @@ import {
   FileText,
   ExternalLink,
   HelpCircle,
-  Home as HomeIcon,
   Inbox,
   MailPlus,
   MoreVertical,
@@ -560,14 +559,14 @@ export default async function Home({ searchParams }: HomeProps) {
   const importantCount = queryMatchedMessages.filter(
     (message) => message.tag === "Importante",
   ).length;
-  const folders = [
-    { name: "Home", count: 0, icon: HomeIcon, href: "/", active: !selectedAccount && !params.settings },
+  const unifiedFolders = [
     {
       name: "Bandeja unificada",
       count: messages.length,
       icon: Inbox,
-      href: buildListHref({ account: selectedAccount, folder: "inbox" }),
+      href: buildListHref({ folder: "inbox" }),
       active:
+        !selectedAccount &&
         !params.settings &&
         !selectedMessage &&
         !activeLabel &&
@@ -577,29 +576,29 @@ export default async function Home({ searchParams }: HomeProps) {
       name: "No leidos",
       count: unreadCount,
       icon: Reply,
-      href: buildListHref({ account: selectedAccount, folder: "unread" }),
-      active: !activeLabel && activeFolder === "unread",
+      href: buildListHref({ folder: "unread" }),
+      active: !selectedAccount && !activeLabel && activeFolder === "unread",
     },
     {
       name: "Seguimientos",
       count: 0,
       icon: Clock3,
-      href: buildListHref({ account: selectedAccount, folder: "followups" }),
-      active: !activeLabel && activeFolder === "followups",
+      href: buildListHref({ folder: "followups" }),
+      active: !selectedAccount && !activeLabel && activeFolder === "followups",
     },
     {
       name: "Importantes",
       count: importantCount,
       icon: Star,
-      href: buildListHref({ account: selectedAccount, folder: "important" }),
-      active: !activeLabel && activeFolder === "important",
+      href: buildListHref({ folder: "important" }),
+      active: !selectedAccount && !activeLabel && activeFolder === "important",
     },
     {
       name: "Enviados",
       count: 0,
       icon: Send,
-      href: buildListHref({ account: selectedAccount, folder: "sent" }),
-      active: !activeLabel && activeFolder === "sent",
+      href: buildListHref({ folder: "sent" }),
+      active: !selectedAccount && !activeLabel && activeFolder === "sent",
     },
     { name: "Configuracion", count: 0, icon: Settings, href: "/?settings=appearance", active: Boolean(params.settings) },
   ];
@@ -646,6 +645,12 @@ export default async function Home({ searchParams }: HomeProps) {
       active: false,
     },
   ];
+  const remainingAccounts = selectedAccountRecord
+    ? accounts.filter((account) => account.address !== selectedAccountRecord.address)
+    : accounts;
+  const sidebarUnifiedFolders = selectedAccountRecord
+    ? unifiedFolders.slice(0, 1)
+    : unifiedFolders;
 
   return (
     <main className="min-h-screen bg-[#f6f8fc] text-[#202124] dark:bg-[#1f1f1f] dark:text-[#e8eaed]">
@@ -661,26 +666,8 @@ export default async function Home({ searchParams }: HomeProps) {
             </button>
           </div>
 
-          {selectedAccountRecord ? (
-            <a
-              href={`mailto:?from=${encodeURIComponent(selectedAccountRecord.address)}`}
-              className="mx-2 mt-6 flex h-14 items-center justify-center gap-3 rounded-2xl bg-white px-4 text-sm font-semibold text-[#202124] shadow-sm hover:shadow-md dark:bg-[#f1f3f4] dark:text-[#202124]"
-            >
-              <Pencil size={19} />
-              Redactar
-            </a>
-          ) : (
-            <a
-              href="/api/gmail/connect"
-              className="mx-2 mt-6 flex h-14 items-center justify-center gap-3 rounded-2xl bg-[#c2e7ff] px-4 text-sm font-semibold text-[#001d35] shadow-sm"
-            >
-              <MailPlus size={20} />
-              Conectar Gmail
-            </a>
-          )}
-
           <nav className="mt-5 space-y-1">
-            {(selectedAccountRecord ? accountFolders : folders).map((folder) => {
+            {sidebarUnifiedFolders.map((folder) => {
               const Icon = folder.icon;
 
               return (
@@ -706,51 +693,106 @@ export default async function Home({ searchParams }: HomeProps) {
           </nav>
 
           {selectedAccountRecord ? (
-            <section className="mt-6 px-4">
-              <div className="mb-2 flex items-center justify-between text-sm font-semibold text-[#202124] dark:text-[#e8eaed]">
-                <span>Etiquetas</span>
-                <span className="text-lg leading-none text-[#5f6368] dark:text-[#bdc1c6]">
-                  +
-                </span>
-              </div>
-              <div className="max-h-72 space-y-1 overflow-y-auto pr-1">
-                {accountLabels.length > 0 ? (
-                  accountLabels.map((label) => {
-                    const count = label.unreadTotal ?? 0;
+            <>
+              <section className="mt-5 px-2">
+                <AccountsList
+                  key={`selected:${selectedAccountRecord.address}:${selectedAccountRecord.sortOrder}:${selectedAccountRecord.displayName}:${selectedAccountRecord.logoUrl ?? ""}`}
+                  accounts={[selectedAccountRecord]}
+                  activeLabel={activeLabel}
+                  labels={labels}
+                  selectedAccount={selectedAccount}
+                  showLabels={false}
+                />
+              </section>
 
-                    return (
-                      <a
-                        key={label.id}
-                        href={buildListHref({
-                          account: selectedAccount,
-                          label: label.id,
-                        })}
-                        className={`flex h-8 items-center justify-between gap-3 rounded-r-full text-sm ${
-                          activeLabel === label.id
-                            ? "font-semibold text-[#0b57d0] dark:text-[#8ab4f8]"
-                            : "text-[#3c4043] hover:text-[#202124] dark:text-[#e8eaed]"
-                        }`}
-                      >
-                        <span className="flex min-w-0 items-center gap-3">
-                          <FileText size={15} className="shrink-0" />
-                          <span className="truncate">{label.name}</span>
-                        </span>
-                        {count > 0 ? (
-                          <span className="shrink-0 text-xs font-semibold">
-                            {count.toLocaleString("es")}
+              <a
+                href={`mailto:?from=${encodeURIComponent(selectedAccountRecord.address)}`}
+                className="mx-2 mt-4 flex h-14 items-center justify-center gap-3 rounded-2xl bg-white px-4 text-sm font-semibold text-[#202124] shadow-sm hover:shadow-md dark:bg-[#f1f3f4] dark:text-[#202124]"
+              >
+                <Pencil size={19} />
+                Redactar
+              </a>
+
+              <nav className="mt-4 space-y-1">
+                {accountFolders.map((folder) => {
+                  const Icon = folder.icon;
+
+                  return (
+                    <a
+                      key={folder.name}
+                      href={folder.href}
+                      className={`flex h-9 items-center justify-between rounded-r-full px-4 text-sm ${
+                        folder.active
+                          ? "bg-[#d3e3fd] font-semibold text-[#041e49] dark:bg-[#394457] dark:text-[#e8f0fe]"
+                          : "text-[#3c4043] hover:bg-[#eaf1fb] dark:text-[#e8eaed] dark:hover:bg-[#303134]"
+                      }`}
+                    >
+                      <span className="flex items-center gap-4">
+                        <Icon size={18} />
+                        {folder.name}
+                      </span>
+                      {folder.count > 0 ? (
+                        <span className="text-xs">{folder.count}</span>
+                      ) : null}
+                    </a>
+                  );
+                })}
+              </nav>
+
+              <section className="mt-6 px-4">
+                <div className="mb-2 flex items-center justify-between text-sm font-semibold text-[#202124] dark:text-[#e8eaed]">
+                  <span>Etiquetas</span>
+                  <span className="text-lg leading-none text-[#5f6368] dark:text-[#bdc1c6]">
+                    +
+                  </span>
+                </div>
+                <div className="max-h-72 space-y-1 overflow-y-auto pr-1">
+                  {accountLabels.length > 0 ? (
+                    accountLabels.map((label) => {
+                      const count = label.unreadTotal ?? 0;
+
+                      return (
+                        <a
+                          key={label.id}
+                          href={buildListHref({
+                            account: selectedAccount,
+                            label: label.id,
+                          })}
+                          className={`flex h-8 items-center justify-between gap-3 rounded-r-full text-sm ${
+                            activeLabel === label.id
+                              ? "font-semibold text-[#0b57d0] dark:text-[#8ab4f8]"
+                              : "text-[#3c4043] hover:text-[#202124] dark:text-[#e8eaed]"
+                          }`}
+                        >
+                          <span className="flex min-w-0 items-center gap-3">
+                            <FileText size={15} className="shrink-0" />
+                            <span className="truncate">{label.name}</span>
                           </span>
-                        ) : null}
-                      </a>
-                    );
-                  })
-                ) : (
-                  <p className="text-sm text-[#5f6368] dark:text-[#bdc1c6]">
-                    Sin etiquetas personalizadas.
-                  </p>
-                )}
-              </div>
-            </section>
-          ) : null}
+                          {count > 0 ? (
+                            <span className="shrink-0 text-xs font-semibold">
+                              {count.toLocaleString("es")}
+                            </span>
+                          ) : null}
+                        </a>
+                      );
+                    })
+                  ) : (
+                    <p className="text-sm text-[#5f6368] dark:text-[#bdc1c6]">
+                      Sin etiquetas personalizadas.
+                    </p>
+                  )}
+                </div>
+              </section>
+            </>
+          ) : (
+            <a
+              href="/api/gmail/connect"
+              className="mx-2 mt-6 flex h-14 items-center justify-center gap-3 rounded-2xl bg-[#c2e7ff] px-4 text-sm font-semibold text-[#001d35] shadow-sm"
+            >
+              <MailPlus size={20} />
+              Conectar Gmail
+            </a>
+          )}
 
           <section className="mt-7 px-2">
             <div className="mb-3 flex items-center justify-between">
@@ -764,16 +806,17 @@ export default async function Home({ searchParams }: HomeProps) {
               </a>
             </div>
             <AccountsList
-              key={accounts
+              key={remainingAccounts
                 .map(
                   (account) =>
                     `${account.address}:${account.sortOrder}:${account.displayName}:${account.logoUrl ?? ""}`,
                 )
                 .join("|")}
-              accounts={accounts}
+              accounts={remainingAccounts}
               activeLabel={activeLabel}
               labels={labels}
-              selectedAccount={selectedAccount}
+              selectedAccount={selectedAccountRecord ? undefined : selectedAccount}
+              showLabels={false}
             />
           </section>
           <SidebarResizer />
