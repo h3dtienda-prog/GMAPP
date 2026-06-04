@@ -25,6 +25,7 @@ const defaults = {
 };
 
 type AppPreferenceValues = typeof defaults;
+const localCustomizationKey = "mails-preferences-customized";
 
 function applyTheme(theme: string) {
   document.documentElement.classList.toggle("dark", theme === "dark");
@@ -101,8 +102,17 @@ function readPreferences() {
   };
 }
 
+function hasLocalCustomization() {
+  return window.localStorage.getItem(localCustomizationKey) === "true";
+}
+
 async function readRemotePreferences() {
   const localPreferences = readPreferences();
+
+  if (hasLocalCustomization()) {
+    return localPreferences;
+  }
+
   const response = await fetch("/api/preferences", { cache: "no-store" });
 
   if (!response.ok) {
@@ -289,6 +299,7 @@ export function ThemeToggle() {
     const nextTheme = theme === "dark" ? "light" : "dark";
 
     window.localStorage.setItem("mails-app-theme", nextTheme);
+    window.localStorage.setItem(localCustomizationKey, "true");
     setTheme(nextTheme);
     applyTheme(nextTheme);
     window.dispatchEvent(new Event("mails-preferences-updated"));

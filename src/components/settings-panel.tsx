@@ -48,11 +48,16 @@ const defaults = {
 };
 
 type AppPreferenceValues = typeof defaults;
+const localCustomizationKey = "mails-preferences-customized";
 
 function mergePreferences(
   localPreferences: AppPreferenceValues,
   remotePreferences: AppPreferenceValues,
 ) {
+  if (typeof window !== "undefined" && window.localStorage.getItem(localCustomizationKey) === "true") {
+    return localPreferences;
+  }
+
   return {
     appName:
       remotePreferences.appName !== defaults.appName ||
@@ -261,6 +266,7 @@ export function SettingsPanel({
     };
 
     window.localStorage.setItem("mails-app-name", nextName);
+    window.localStorage.setItem(localCustomizationKey, "true");
     window.localStorage.setItem("mails-app-title", nextPreferences.appTitle);
     window.localStorage.setItem("mails-app-logo-url", nextPreferences.appLogoUrl);
     window.localStorage.setItem("mails-app-favicon-url", nextPreferences.faviconUrl);
