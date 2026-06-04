@@ -7,23 +7,32 @@ type GmailMessageAction = "archive" | "star" | "unstar" | "read" | "unread" | "l
 
 export async function POST(request: NextRequest) {
   const formData = await request.formData();
-  const account = String(formData.get("account") ?? "");
   const action = String(formData.get("action") ?? "") as GmailMessageAction;
-  const gmailId = String(formData.get("gmailId") ?? "");
+  const accounts = formData.getAll("account").map(String);
+  const gmailIds = formData.getAll("gmailId").map(String);
   const labelId = String(formData.get("labelId") ?? "");
   const redirectTo = String(formData.get("redirectTo") ?? "/");
 
-  if (!account || !gmailId || !isMessageAction(action)) {
+  if (
+    accounts.length === 0 ||
+    gmailIds.length === 0 ||
+    accounts.length !== gmailIds.length ||
+    !isMessageAction(action)
+  ) {
     return redirectWithError(request.nextUrl.origin, redirectTo, "Accion invalida.");
   }
 
   try {
-    await performGmailMessageAction({
-      account,
-      action,
-      gmailId,
-      labelId: labelId || undefined,
-    });
+    await Promise.all(
+      gmailIds.map((gmailId, index) =>
+        performGmailMessageAction({
+          account: accounts[index],
+          action,
+          gmailId,
+          labelId: labelId || undefined,
+        }),
+      ),
+    );
 
     return NextResponse.redirect(new URL(redirectTo, request.nextUrl.origin));
   } catch (error) {
