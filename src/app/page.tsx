@@ -8,8 +8,8 @@ import {
   HelpCircle,
   Inbox,
   MailPlus,
+  LogOut,
   MoreVertical,
-  Pencil,
   Plus,
   Printer,
   Reply,
@@ -24,6 +24,7 @@ import {
 import Link from "next/link";
 import { AccountsList } from "@/components/accounts-list";
 import { AppPreferences, ThemeToggle } from "@/components/app-preferences";
+import { ComposeMail } from "@/components/compose-mail";
 import { GmailInboxList, MoveToLabelMenu } from "@/components/gmail-inbox-list";
 import { HeaderIdentity } from "@/components/header-identity";
 import { SettingsPanel } from "@/components/settings-panel";
@@ -171,24 +172,10 @@ function messageMatchesQuery(message: GmailDashboardMessage, query: string) {
 }
 
 function getMessageCategory(message: GmailDashboardMessage) {
-  const searchableText = `${message.sender} ${message.fromEmail ?? ""} ${message.subject} ${message.preview}`.toLowerCase();
-
-  if (
-    /\b(instagram|facebook|discord|linkedin|x\.com|twitter|social)\b/.test(
-      searchableText,
-    )
-  ) {
-    return "social";
-  }
-
-  if (
-    /\b(promo|sale|oferta|descuento|marketing|newsletter|patreon|stripe|mercado|shop|tienda)\b/.test(
-      searchableText,
-    )
-  ) {
-    return "promotions";
-  }
-
+  if (message.labelIds.includes("CATEGORY_PROMOTIONS")) return "promotions";
+  if (message.labelIds.includes("CATEGORY_SOCIAL")) return "social";
+  if (message.labelIds.includes("CATEGORY_UPDATES")) return "updates";
+  if (message.labelIds.includes("CATEGORY_FORUMS")) return "forums";
   return "primary";
 }
 
@@ -208,7 +195,12 @@ function getFolder(value: string | undefined) {
   if (
     value === "unread" ||
     value === "important" ||
+    value === "starred" ||
     value === "sent" ||
+    value === "drafts" ||
+    value === "all" ||
+    value === "spam" ||
+    value === "trash" ||
     value === "archive" ||
     value === "followups"
   ) {
@@ -282,6 +274,15 @@ function GmailTopBar({
           <Settings size={20} />
         </Link>
         <HeaderIdentity accounts={accounts} selectedAccount={selectedAccount} />
+        <form action="/api/auth/logout" method="post">
+          <button
+            className="grid size-10 place-items-center rounded-full hover:bg-[#e8eaed] dark:hover:bg-[#2b2c2f]"
+            aria-label="Cerrar sesion"
+            title="Cerrar sesion"
+          >
+            <LogOut size={19} />
+          </button>
+        </form>
       </div>
     </header>
   );
@@ -503,6 +504,9 @@ export default async function Home({ searchParams }: HomeProps) {
     social: queryMatchedMessages.filter(
       (message) => getMessageCategory(message) === "social",
     ).length,
+    updates: queryMatchedMessages.filter(
+      (message) => getMessageCategory(message) === "updates",
+    ).length,
   };
   const currentHref = buildListHref({
     account: selectedAccount,
@@ -532,6 +536,13 @@ export default async function Home({ searchParams }: HomeProps) {
       label: activeLabel,
       q: query,
       tab: "social",
+    }),
+    updates: buildListHref({
+      account: selectedAccount,
+      folder: activeFolder,
+      label: activeLabel,
+      q: query,
+      tab: "updates",
     }),
     all: buildListHref({
       account: selectedAccount,
@@ -621,8 +632,8 @@ export default async function Home({ searchParams }: HomeProps) {
       name: "Destacados",
       count: importantCount,
       icon: Star,
-      href: buildListHref({ account: selectedAccount, folder: "important" }),
-      active: !activeLabel && activeFolder === "important",
+      href: buildListHref({ account: selectedAccount, folder: "starred" }),
+      active: !activeLabel && activeFolder === "starred",
     },
     {
       name: "Pospuestos",
@@ -642,8 +653,36 @@ export default async function Home({ searchParams }: HomeProps) {
       name: "Borradores",
       count: 0,
       icon: FileText,
-      href: buildListHref({ account: selectedAccount, folder: "inbox" }),
-      active: false,
+      href: buildListHref({ account: selectedAccount, folder: "drafts" }),
+      active: !activeLabel && activeFolder === "drafts",
+    },
+    {
+      name: "Importantes",
+      count: importantCount,
+      icon: Star,
+      href: buildListHref({ account: selectedAccount, folder: "important" }),
+      active: !activeLabel && activeFolder === "important",
+    },
+    {
+      name: "Todos",
+      count: 0,
+      icon: Inbox,
+      href: buildListHref({ account: selectedAccount, folder: "all" }),
+      active: !activeLabel && activeFolder === "all",
+    },
+    {
+      name: "Spam",
+      count: 0,
+      icon: Archive,
+      href: buildListHref({ account: selectedAccount, folder: "spam" }),
+      active: !activeLabel && activeFolder === "spam",
+    },
+    {
+      name: "Papelera",
+      count: 0,
+      icon: Trash2,
+      href: buildListHref({ account: selectedAccount, folder: "trash" }),
+      active: !activeLabel && activeFolder === "trash",
     },
   ];
   const remainingAccounts = selectedAccountRecord
@@ -707,13 +746,7 @@ export default async function Home({ searchParams }: HomeProps) {
                 />
               </section>
 
-              <a
-                href={`mailto:?from=${encodeURIComponent(selectedAccountRecord.address)}`}
-                className="mx-2 mt-4 flex h-14 items-center justify-center gap-3 rounded-2xl bg-white px-4 text-sm font-semibold text-[#202124] shadow-sm hover:shadow-md dark:bg-[#f1f3f4] dark:text-[#202124]"
-              >
-                <Pencil size={19} />
-                Redactar
-              </a>
+              <ComposeMail account={selectedAccountRecord.address} />
 
               <nav className="mt-4 space-y-1">
                 {accountFolders.map((folder) => {

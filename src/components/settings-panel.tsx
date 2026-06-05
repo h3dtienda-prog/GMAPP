@@ -45,6 +45,9 @@ const defaults = {
   darkSidebar: "#1f1f1f",
   darkAccent: "#8ab4f8",
   darkButton: "#2d5f7a",
+  loginTitle: "Acceso privado",
+  loginSubtitle: "Ingresa para abrir tu centro de correo.",
+  loginLogoUrl: "",
 };
 
 type AppPreferenceValues = typeof defaults;
@@ -84,6 +87,9 @@ function mergePreferences(
     darkSidebar: remotePreferences.darkSidebar || localPreferences.darkSidebar,
     darkAccent: remotePreferences.darkAccent || localPreferences.darkAccent,
     darkButton: remotePreferences.darkButton || localPreferences.darkButton,
+    loginTitle: remotePreferences.loginTitle || localPreferences.loginTitle,
+    loginSubtitle: remotePreferences.loginSubtitle || localPreferences.loginSubtitle,
+    loginLogoUrl: remotePreferences.loginLogoUrl || localPreferences.loginLogoUrl,
   };
 }
 
@@ -163,6 +169,9 @@ export function SettingsPanel({
   const [darkSidebar, setDarkSidebar] = useState(defaults.darkSidebar);
   const [darkAccent, setDarkAccent] = useState(defaults.darkAccent);
   const [darkButton, setDarkButton] = useState(defaults.darkButton);
+  const [loginTitle, setLoginTitle] = useState(defaults.loginTitle);
+  const [loginSubtitle, setLoginSubtitle] = useState(defaults.loginSubtitle);
+  const [loginLogoUrl, setLoginLogoUrl] = useState(defaults.loginLogoUrl);
   const [saved, setSaved] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [saveTone, setSaveTone] = useState<"success" | "warning" | "error">(
@@ -212,6 +221,9 @@ export function SettingsPanel({
         darkButton:
           window.localStorage.getItem("mails-color-dark-button") ??
           defaults.darkButton,
+        loginTitle: defaults.loginTitle,
+        loginSubtitle: defaults.loginSubtitle,
+        loginLogoUrl: defaults.loginLogoUrl,
       };
 
       const preferences = await fetch("/api/preferences", { cache: "no-store" })
@@ -241,6 +253,9 @@ export function SettingsPanel({
       setDarkSidebar(preferences.darkSidebar);
       setDarkAccent(preferences.darkAccent);
       setDarkButton(preferences.darkButton);
+      setLoginTitle(preferences.loginTitle);
+      setLoginSubtitle(preferences.loginSubtitle);
+      setLoginLogoUrl(preferences.loginLogoUrl);
       applyCustomColors(preferences);
     });
   }, []);
@@ -263,6 +278,9 @@ export function SettingsPanel({
       darkSidebar,
       darkAccent,
       darkButton,
+      loginTitle,
+      loginSubtitle,
+      loginLogoUrl,
     };
 
     window.localStorage.setItem("mails-app-name", nextName);
@@ -447,6 +465,50 @@ export function SettingsPanel({
                       onChange={(event) => setAppLogoUrl(event.target.value)}
                       placeholder="URL del logo"
                     />
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-[#d8d2c6] p-5 dark:border-[#3c4043]">
+                <h3 className="text-lg font-semibold">Pantalla de acceso</h3>
+                <p className="mt-1 text-sm text-[#5f6368] dark:text-[#bdc1c6]">
+                  Personaliza lo que se muestra antes de ingresar a la app.
+                </p>
+                <div className="mt-4 grid gap-3">
+                  <input
+                    className="h-11 rounded-md border border-[#d8d2c6] bg-white px-3 outline-none dark:border-[#3c4043] dark:bg-[#303134]"
+                    value={loginTitle}
+                    onChange={(event) => setLoginTitle(event.target.value)}
+                    placeholder="Titulo del login"
+                  />
+                  <input
+                    className="h-11 rounded-md border border-[#d8d2c6] bg-white px-3 outline-none dark:border-[#3c4043] dark:bg-[#303134]"
+                    value={loginSubtitle}
+                    onChange={(event) => setLoginSubtitle(event.target.value)}
+                    placeholder="Texto de bienvenida"
+                  />
+                  <div className="flex gap-3">
+                    <input
+                      className="h-11 min-w-0 flex-1 rounded-md border border-[#d8d2c6] bg-white px-3 outline-none dark:border-[#3c4043] dark:bg-[#303134]"
+                      value={loginLogoUrl.startsWith("data:image/") ? "" : loginLogoUrl}
+                      onChange={(event) => setLoginLogoUrl(event.target.value)}
+                      placeholder="URL del logo del login"
+                    />
+                    <label className="flex h-11 cursor-pointer items-center gap-2 rounded-full border border-[#d8d2c6] px-4 text-sm font-semibold dark:border-[#3c4043]">
+                      <ImageUp size={17} />
+                      Subir logo
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="sr-only"
+                        onChange={(event) =>
+                          void uploadPreferenceLogo(
+                            event.target.files?.[0],
+                            setLoginLogoUrl,
+                          )
+                        }
+                      />
+                    </label>
                   </div>
                 </div>
               </div>

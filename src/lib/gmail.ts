@@ -84,6 +84,7 @@ export type GmailDashboardMessage = {
   unread: boolean;
   attachment: boolean;
   to?: string;
+  labelIds: string[];
 };
 
 export type GmailDashboardLabel = {
@@ -95,7 +96,18 @@ export type GmailDashboardLabel = {
   unreadTotal?: number;
 };
 
-type GmailMailbox = "inbox" | "unread" | "important" | "sent" | "archive" | "followups";
+type GmailMailbox =
+  | "inbox"
+  | "unread"
+  | "important"
+  | "starred"
+  | "sent"
+  | "drafts"
+  | "all"
+  | "spam"
+  | "trash"
+  | "archive"
+  | "followups";
 type CacheEntry<T> = {
   expiresAt: number;
   value: T;
@@ -130,6 +142,27 @@ function clearGmailCacheForAccount(account: string) {
       gmailCache.delete(key);
     }
   }
+}
+
+async function mapWithConcurrency<T, R>(
+  values: T[],
+  concurrency: number,
+  worker: (value: T) => Promise<R>,
+) {
+  const results: R[] = [];
+  let index = 0;
+
+  async function run() {
+    while (index < values.length) {
+      const currentIndex = index++;
+      results[currentIndex] = await worker(values[currentIndex]);
+    }
+  }
+
+  await Promise.all(
+    Array.from({ length: Math.min(concurrency, values.length) }, () => run()),
+  );
+  return results;
 }
 
 export function getGoogleOAuthConfig(origin?: string) {
@@ -293,7 +326,7 @@ export async function getGmailDashboardData(
     };
   }
 
-  for (const row of visibleRows) {
+  await mapWithConcurrency(visibleRows, selectedAccount ? 1 : 2, async (row) => {
     try {
       const payload = decryptGmailPayload(row.encrypted_payload);
       let tokens = await ensureFreshGmailTokens(payload);
@@ -345,7 +378,7 @@ export async function getGmailDashboardData(
         }`,
       );
     }
-  }
+  });
 
   return {
     accounts,
@@ -401,6 +434,98 @@ export async function performGmailMessageAction({
 
   if (tokens.access_token !== payload.tokens.access_token) {
     await storeEncryptedGmailConnection(payload.profile, tokens);
+  }
+
+  clearGmailCacheForAccount(account);
+}
+
+export async function performGmailMessagesAction({
+  account,
+  action,
+  gmailIds,
+  labelId,
+}: {
+  account: string;
+  action: "archive" | "star" | "unstar" | "read" | "unread" | "label";
+  gmailIds: string[];
+  labelId?: string;
+}) {
+  const row = await getGmailConnectionRow(account);
+
+  if (!row) {
+    throw new Error(`La cuenta ${account} no está conectada.`);
+  }
+
+  const payload = decryptGmailPayload(row.encrypted_payload);
+  const tokens = await ensureFreshGmailTokens(payload);
+  const response = await fetch(
+    "https://gmail.googleapis.com/gmail/v1/users/me/messages/batchModify",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${tokens.access_token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ ids: gmailIds, ...getLabelMutation(action, labelId) }),
+    },
+  );
+
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`${account}: Gmail action failed: ${body}`);
+  }
+
+  if (tokens.access_token !== payload.tokens.access_token) {
+    await storeEncryptedGmailConnection(payload.profile, tokens);
+  }
+
+  clearGmailCacheForAccount(account);
+}
+
+export async function sendGmailMessage({
+  account,
+  body,
+  subject,
+  to,
+}: {
+  account: string;
+  body: string;
+  subject: string;
+  to: string;
+}) {
+  const row = await getGmailConnectionRow(account);
+
+  if (!row) {
+    throw new Error("La cuenta Gmail no está conectada.");
+  }
+
+  const payload = decryptGmailPayload(row.encrypted_payload);
+  const tokens = await ensureFreshGmailTokens(payload);
+  const rawMessage = [
+    `From: ${account}`,
+    `To: ${to}`,
+    `Subject: ${subject}`,
+    "MIME-Version: 1.0",
+    'Content-Type: text/plain; charset="UTF-8"',
+    "",
+    body,
+  ].join("\r\n");
+  const raw = Buffer.from(rawMessage)
+    .toString("base64url");
+  const response = await fetch(
+    "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${tokens.access_token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ raw }),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(`Gmail send failed: ${await response.text()}`);
   }
 
   clearGmailCacheForAccount(account);
@@ -618,8 +743,7 @@ async function getRecentGmailMessages(
     messageIds = await listRecentGmailMessageIds(accessToken, undefined, maxResults);
   }
 
-  const messages = await Promise.all(
-    messageIds.map(async (message) => {
+  const messages = await mapWithConcurrency(messageIds, 5, async (message) => {
     const response = await fetch(
       `https://gmail.googleapis.com/gmail/v1/users/me/messages/${message.id}?` +
         new URLSearchParams({
@@ -672,9 +796,9 @@ async function getRecentGmailMessages(
       unread: data.labelIds?.includes("UNREAD") ?? false,
       attachment: data.labelIds?.includes("SENT") ? false : false,
       to: headers.get("to"),
+      labelIds: data.labelIds ?? [],
     };
-    }),
-  );
+  });
 
   return writeGmailCache(cacheKey, messages);
 }
@@ -688,8 +812,28 @@ function getMailboxListOptions(mailbox: GmailMailbox) {
     return { labelId: "IMPORTANT" };
   }
 
+  if (mailbox === "starred") {
+    return { labelId: "STARRED" };
+  }
+
   if (mailbox === "sent") {
     return { labelId: "SENT" };
+  }
+
+  if (mailbox === "drafts") {
+    return { labelId: "DRAFT" };
+  }
+
+  if (mailbox === "all") {
+    return { query: "-in:spam -in:trash" };
+  }
+
+  if (mailbox === "spam") {
+    return { labelId: "SPAM" };
+  }
+
+  if (mailbox === "trash") {
+    return { labelId: "TRASH" };
   }
 
   if (mailbox === "archive") {

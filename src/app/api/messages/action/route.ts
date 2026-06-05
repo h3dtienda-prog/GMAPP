@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { performGmailMessageAction } from "@/lib/gmail";
+import { performGmailMessagesAction } from "@/lib/gmail";
 
 export const runtime = "nodejs";
 
@@ -22,26 +22,39 @@ export async function POST(request: NextRequest) {
     return redirectWithError(request.nextUrl.origin, redirectTo, "Accion invalida.");
   }
 
-  try {
-    await Promise.all(
-      gmailIds.map((gmailId, index) =>
-        performGmailMessageAction({
-          account: accounts[index],
-          action,
-          gmailId,
-          labelId: labelId || undefined,
-        }),
-      ),
-    );
+  const grouped = new Map<string, string[]>();
+  gmailIds.forEach((gmailId, index) => {
+    grouped.set(accounts[index], [...(grouped.get(accounts[index]) ?? []), gmailId]);
+  });
+  const results = await Promise.allSettled(
+    [...grouped.entries()].map(([account, ids]) =>
+      performGmailMessagesAction({
+        account,
+        action,
+        gmailIds: ids,
+        labelId: labelId || undefined,
+      }),
+    ),
+  );
+  const failures = results.filter(
+    (result): result is PromiseRejectedResult => result.status === "rejected",
+  );
 
-    return NextResponse.redirect(new URL(redirectTo, request.nextUrl.origin));
-  } catch (error) {
+  if (failures.length > 0) {
     return redirectWithError(
       request.nextUrl.origin,
       redirectTo,
-      error instanceof Error ? error.message : "No se pudo ejecutar la accion.",
+      failures
+        .map((failure) =>
+          failure.reason instanceof Error
+            ? failure.reason.message
+            : "No se pudo ejecutar una acción.",
+        )
+        .join(" | "),
     );
   }
+
+  return NextResponse.redirect(new URL(redirectTo, request.nextUrl.origin));
 }
 
 function isMessageAction(action: string): action is GmailMessageAction {

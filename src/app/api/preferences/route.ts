@@ -19,6 +19,9 @@ type PreferencesBody = {
   darkSidebar?: string;
   darkAccent?: string;
   darkButton?: string;
+  loginTitle?: string;
+  loginSubtitle?: string;
+  loginLogoUrl?: string;
 };
 
 const defaults = {
@@ -37,9 +40,12 @@ const defaults = {
   darkSidebar: "#1f1f1f",
   darkAccent: "#8ab4f8",
   darkButton: "#2d5f7a",
+  loginTitle: "Acceso privado",
+  loginSubtitle: "Ingresa para abrir tu centro de correo.",
+  loginLogoUrl: "",
 };
 const preferenceColumns =
-  "app_name, app_title, app_logo_url, favicon_url, theme, light_background, light_surface, light_sidebar, light_accent, light_button, dark_background, dark_surface, dark_sidebar, dark_accent, dark_button";
+  "app_name, app_title, app_logo_url, favicon_url, theme, light_background, light_surface, light_sidebar, light_accent, light_button, dark_background, dark_surface, dark_sidebar, dark_accent, dark_button, login_title, login_subtitle, login_logo_url";
 
 function normalizeOptionalText(value: string | undefined) {
   const trimmed = value?.trim();
@@ -83,6 +89,9 @@ function mapPreferenceRow(data: {
   dark_sidebar?: string | null;
   dark_accent?: string | null;
   dark_button?: string | null;
+  login_title?: string | null;
+  login_subtitle?: string | null;
+  login_logo_url?: string | null;
 }) {
   return {
     appName: data.app_name ?? defaults.appName,
@@ -100,6 +109,9 @@ function mapPreferenceRow(data: {
     darkSidebar: data.dark_sidebar ?? defaults.darkSidebar,
     darkAccent: data.dark_accent ?? defaults.darkAccent,
     darkButton: data.dark_button ?? defaults.darkButton,
+    loginTitle: data.login_title ?? defaults.loginTitle,
+    loginSubtitle: data.login_subtitle ?? defaults.loginSubtitle,
+    loginLogoUrl: data.login_logo_url ?? defaults.loginLogoUrl,
   };
 }
 
@@ -118,6 +130,9 @@ function isMissingAppTitleColumn(message: string) {
     lowerMessage.includes("dark_sidebar") ||
     lowerMessage.includes("dark_accent") ||
     lowerMessage.includes("dark_button")
+    || lowerMessage.includes("login_title")
+    || lowerMessage.includes("login_subtitle")
+    || lowerMessage.includes("login_logo_url")
   );
 }
 
@@ -178,6 +193,7 @@ export async function POST(request: NextRequest) {
   const body = (await request.json()) as PreferencesBody;
   const appLogoUrl = normalizeOptionalText(body.appLogoUrl);
   const faviconUrl = normalizeOptionalText(body.faviconUrl);
+  const loginLogoUrl = normalizeOptionalText(body.loginLogoUrl);
 
   if (appLogoUrl && !isAllowedImageValue(appLogoUrl)) {
     return NextResponse.json(
@@ -195,6 +211,13 @@ export async function POST(request: NextRequest) {
         error:
           "El icono debe ser una imagen subida menor a 4 MB o una URL http/https.",
       },
+      { status: 400 },
+    );
+  }
+
+  if (loginLogoUrl && !isAllowedImageValue(loginLogoUrl)) {
+    return NextResponse.json(
+      { error: "El logo del login debe ser una imagen subida o una URL http/https." },
       { status: 400 },
     );
   }
@@ -220,6 +243,9 @@ export async function POST(request: NextRequest) {
     dark_sidebar: normalizeColor(body.darkSidebar, defaults.darkSidebar),
     dark_accent: normalizeColor(body.darkAccent, defaults.darkAccent),
     dark_button: normalizeColor(body.darkButton, defaults.darkButton),
+    login_title: body.loginTitle?.trim() || defaults.loginTitle,
+    login_subtitle: body.loginSubtitle?.trim() || defaults.loginSubtitle,
+    login_logo_url: loginLogoUrl,
     updated_at: updatedAt,
   };
   const payload = {

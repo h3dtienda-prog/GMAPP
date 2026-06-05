@@ -217,6 +217,7 @@ export function GmailInboxList({
     { id: "primary", label: "Principal", detail: `${counts.primary ?? 0} correos` },
     { id: "promotions", label: "Promociones", detail: `${counts.promotions ?? 0} correos` },
     { id: "social", label: "Social", detail: `${counts.social ?? 0} correos` },
+    { id: "updates", label: "Notificaciones", detail: `${counts.updates ?? 0} correos` },
   ];
 
   return (
@@ -331,7 +332,7 @@ export function GmailInboxList({
         </div>
       </div>
 
-      <div className="grid border-b border-[#e0e0e0] bg-white dark:border-[#3c4043] dark:bg-[#1f1f1f] md:grid-cols-3">
+      <div className="grid border-b border-[#e0e0e0] bg-white dark:border-[#3c4043] dark:bg-[#1f1f1f] md:grid-cols-4">
         {tabs.map((item) => (
           <Link
             key={item.id}
