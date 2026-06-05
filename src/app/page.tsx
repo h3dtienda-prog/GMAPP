@@ -480,11 +480,12 @@ export default async function Home({ searchParams }: HomeProps) {
   const activeLabel = selectedAccount ? params.label : undefined;
   const activeTab = params.tab ?? "primary";
   const query = params.q ?? "";
-  const { accounts, messages, labels, error } = await getGmailDashboardData(
+  const { accounts, messages, labels, counts, error } = await getGmailDashboardData(
     selectedAccount,
     activeFolder,
     activeLabel,
     !params.settings,
+    activeTab,
   );
   const visibleGmailStatus =
     params.gmail === "missing-config" && accounts.length > 0
@@ -495,18 +496,10 @@ export default async function Home({ searchParams }: HomeProps) {
   );
   const visibleMessages = filterMessages(queryMatchedMessages, activeTab, "");
   const tabCounts = {
-    primary: queryMatchedMessages.filter(
-      (message) => getMessageCategory(message) === "primary",
-    ).length,
-    promotions: queryMatchedMessages.filter(
-      (message) => getMessageCategory(message) === "promotions",
-    ).length,
-    social: queryMatchedMessages.filter(
-      (message) => getMessageCategory(message) === "social",
-    ).length,
-    updates: queryMatchedMessages.filter(
-      (message) => getMessageCategory(message) === "updates",
-    ).length,
+    primary: counts.primary,
+    promotions: counts.promotions,
+    social: counts.social,
+    updates: counts.updates,
   };
   const currentHref = buildListHref({
     account: selectedAccount,
@@ -567,14 +560,12 @@ export default async function Home({ searchParams }: HomeProps) {
   const selectedMessage = params.message
     ? messages.find((message) => message.id === params.message) ?? null
     : null;
-  const unreadCount = queryMatchedMessages.filter((message) => message.unread).length;
-  const importantCount = queryMatchedMessages.filter(
-    (message) => message.tag === "Importante",
-  ).length;
+  const unreadCount = counts.unread;
+  const importantCount = counts.important;
   const unifiedFolders = [
     {
       name: "Bandeja unificada",
-      count: messages.length,
+      count: counts.inbox,
       icon: Inbox,
       href: buildListHref({ folder: "inbox" }),
       active:
@@ -618,40 +609,40 @@ export default async function Home({ searchParams }: HomeProps) {
     ? accounts.find((account) => account.address === selectedAccount)
     : undefined;
   const accountLabels = selectedAccount
-    ? labels.filter((label) => label.account === selectedAccount)
+    ? labels.filter((label) => label.account === selectedAccount && label.type === "user")
     : [];
   const accountFolders = [
     {
       name: "Recibidos",
-      count: messages.length,
+      count: counts.inbox,
       icon: Inbox,
       href: buildListHref({ account: selectedAccount, folder: "inbox" }),
       active: !activeLabel && activeFolder === "inbox",
     },
     {
       name: "Destacados",
-      count: importantCount,
+      count: counts.starred,
       icon: Star,
       href: buildListHref({ account: selectedAccount, folder: "starred" }),
       active: !activeLabel && activeFolder === "starred",
     },
     {
       name: "Pospuestos",
-      count: 0,
+      count: counts.sent,
       icon: Clock3,
       href: buildListHref({ account: selectedAccount, folder: "followups" }),
       active: !activeLabel && activeFolder === "followups",
     },
     {
       name: "Enviados",
-      count: 0,
+      count: counts.drafts,
       icon: Send,
       href: buildListHref({ account: selectedAccount, folder: "sent" }),
       active: !activeLabel && activeFolder === "sent",
     },
     {
       name: "Borradores",
-      count: 0,
+      count: counts.spam,
       icon: FileText,
       href: buildListHref({ account: selectedAccount, folder: "drafts" }),
       active: !activeLabel && activeFolder === "drafts",
@@ -665,7 +656,7 @@ export default async function Home({ searchParams }: HomeProps) {
     },
     {
       name: "Todos",
-      count: 0,
+      count: counts.trash,
       icon: Inbox,
       href: buildListHref({ account: selectedAccount, folder: "all" }),
       active: !activeLabel && activeFolder === "all",
@@ -897,7 +888,7 @@ export default async function Home({ searchParams }: HomeProps) {
           ) : (
             <GmailInboxList
               accounts={accounts}
-              allCount={messages.length}
+              allCount={activeFolder === "inbox" ? counts.inbox : messages.length}
               counts={tabCounts}
               currentHref={currentHref}
               labels={labels}

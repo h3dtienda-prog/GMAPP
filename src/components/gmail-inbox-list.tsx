@@ -118,6 +118,7 @@ export function MoveToLabelMenu({
   const accountLabels =
     selectedAccounts.size === 1
       ? labels.filter((label) => label.account === account)
+          .filter((label) => label.type === "user")
       : [];
 
   return (

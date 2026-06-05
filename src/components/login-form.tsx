@@ -20,10 +20,33 @@ export function LoginForm() {
   const [preferences, setPreferences] = useState<LoginPreferences>({});
 
   useEffect(() => {
-    void fetch("/api/preferences", { cache: "no-store" })
-      .then((response) => (response.ok ? response.json() : {}))
-      .then(setPreferences)
-      .catch(() => undefined);
+    window.requestAnimationFrame(() => {
+      setPreferences({
+        loginTitle:
+          window.localStorage.getItem("mails-login-title") ?? undefined,
+        loginSubtitle:
+          window.localStorage.getItem("mails-login-subtitle") ?? undefined,
+        loginLogoUrl:
+          window.localStorage.getItem("mails-login-logo-url") ?? undefined,
+      });
+      void fetch("/api/preferences", { cache: "no-store" })
+        .then((response) => (response.ok ? response.json() : {}))
+        .then((remote: LoginPreferences) =>
+          setPreferences((local) => ({
+            loginTitle:
+              remote.loginTitle && remote.loginTitle !== "Acceso privado"
+                ? remote.loginTitle
+                : local.loginTitle || remote.loginTitle,
+            loginSubtitle:
+              remote.loginSubtitle &&
+              remote.loginSubtitle !== "Ingresa para abrir tu centro de correo."
+                ? remote.loginSubtitle
+                : local.loginSubtitle || remote.loginSubtitle,
+            loginLogoUrl: remote.loginLogoUrl || local.loginLogoUrl,
+          })),
+        )
+        .catch(() => undefined);
+    });
   }, []);
 
   async function submit(event: FormEvent<HTMLFormElement>) {

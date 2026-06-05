@@ -204,7 +204,7 @@ export function AccountsList({
       {orderedAccounts.map((account, index) => {
         const isSelected = selectedAccount === account.address;
         const accountLabels = labels.filter(
-          (label) => label.account === account.address,
+          (label) => label.account === account.address && label.type === "user",
         );
 
         return (

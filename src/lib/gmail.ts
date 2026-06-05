@@ -96,6 +96,21 @@ export type GmailDashboardLabel = {
   unreadTotal?: number;
 };
 
+export type GmailDashboardCounts = {
+  inbox: number;
+  unread: number;
+  starred: number;
+  important: number;
+  sent: number;
+  drafts: number;
+  spam: number;
+  trash: number;
+  primary: number;
+  promotions: number;
+  social: number;
+  updates: number;
+};
+
 type GmailMailbox =
   | "inbox"
   | "unread"
@@ -269,6 +284,7 @@ export async function getGmailDashboardData(
   mailbox: GmailMailbox = "inbox",
   selectedLabelId?: string,
   loadMessages = true,
+  category = "primary",
 ) {
   const supabase = getSupabaseAdminClient();
 
@@ -277,6 +293,7 @@ export async function getGmailDashboardData(
       accounts: [] as GmailDashboardAccount[],
       messages: [] as GmailDashboardMessage[],
       labels: [] as GmailDashboardLabel[],
+      counts: emptyDashboardCounts(),
       error: null as string | null,
     };
   }
@@ -288,6 +305,7 @@ export async function getGmailDashboardData(
       accounts: [] as GmailDashboardAccount[],
       messages: [] as GmailDashboardMessage[],
       labels: [] as GmailDashboardLabel[],
+      counts: emptyDashboardCounts(),
       error: error.message,
     };
   }
@@ -315,6 +333,7 @@ export async function getGmailDashboardData(
   const messages: GmailDashboardMessage[] = [];
   const labels: GmailDashboardLabel[] = [];
   const connectionErrors: string[] = [];
+  const counts = emptyDashboardCounts();
   const maxMessagesPerAccount = selectedAccount ? 25 : 8;
 
   if (!loadMessages) {
@@ -322,6 +341,7 @@ export async function getGmailDashboardData(
       accounts,
       messages,
       labels,
+      counts,
       error: null,
     };
   }
@@ -339,6 +359,7 @@ export async function getGmailDashboardData(
           mailbox,
           selectedLabelId,
           maxMessagesPerAccount,
+          category,
         );
       } catch (error) {
         if (!isInvalidGoogleCredentialsError(error) || !payload.tokens.refresh_token) {
@@ -352,16 +373,26 @@ export async function getGmailDashboardData(
           mailbox,
           selectedLabelId,
           maxMessagesPerAccount,
+          category,
         );
       }
 
       const accountLabels = await getCachedGmailLabels(
         row.email_address,
         tokens.access_token,
+        Boolean(selectedAccount),
       );
 
       messages.push(...recentMessages);
       labels.push(...accountLabels);
+      addLabelCounts(counts, accountLabels);
+      if (selectedAccount) {
+        const categoryCounts = await getGmailCategoryCounts(tokens.access_token);
+        counts.primary = categoryCounts.primary;
+        counts.promotions = categoryCounts.promotions;
+        counts.social = categoryCounts.social;
+        counts.updates = categoryCounts.updates;
+      }
 
       if (tokens.access_token !== payload.tokens.access_token) {
         await storeEncryptedGmailConnection(payload.profile, tokens);
@@ -384,8 +415,54 @@ export async function getGmailDashboardData(
     accounts,
     messages,
     labels,
+    counts,
     error: connectionErrors.length > 0 ? connectionErrors.join("\n") : null,
   };
+}
+
+function emptyDashboardCounts(): GmailDashboardCounts {
+  return {
+    inbox: 0,
+    unread: 0,
+    starred: 0,
+    important: 0,
+    sent: 0,
+    drafts: 0,
+    spam: 0,
+    trash: 0,
+    primary: 0,
+    promotions: 0,
+    social: 0,
+    updates: 0,
+  };
+}
+
+function addLabelCounts(
+  counts: GmailDashboardCounts,
+  labels: GmailDashboardLabel[],
+) {
+  const mapping: Record<string, keyof GmailDashboardCounts> = {
+    INBOX: "inbox",
+    UNREAD: "unread",
+    STARRED: "starred",
+    IMPORTANT: "important",
+    SENT: "sent",
+    DRAFT: "drafts",
+    SPAM: "spam",
+    TRASH: "trash",
+    CATEGORY_PRIMARY: "primary",
+    CATEGORY_PROMOTIONS: "promotions",
+    CATEGORY_SOCIAL: "social",
+    CATEGORY_UPDATES: "updates",
+  };
+
+  for (const label of labels) {
+    const key = mapping[label.id];
+
+    if (key) {
+      counts[key] += label.messagesTotal ?? 0;
+    }
+  }
 }
 
 export async function performGmailMessageAction({
@@ -719,6 +796,7 @@ async function getRecentGmailMessages(
   mailbox: GmailMailbox,
   selectedLabelId?: string,
   maxResults = 25,
+  category = "primary",
 ) {
   const cacheKey = [
     "messages",
@@ -726,6 +804,7 @@ async function getRecentGmailMessages(
     mailbox,
     selectedLabelId ?? "none",
     maxResults,
+    category,
   ].join(":");
   const cachedMessages = readGmailCache<GmailDashboardMessage[]>(cacheKey);
 
@@ -735,7 +814,9 @@ async function getRecentGmailMessages(
 
   let messageIds = await listRecentGmailMessageIds(
     accessToken,
-    selectedLabelId ? { labelId: selectedLabelId } : getMailboxListOptions(mailbox),
+    selectedLabelId
+      ? { labelId: selectedLabelId }
+      : getMailboxListOptions(mailbox, category),
     maxResults,
   );
 
@@ -803,9 +884,14 @@ async function getRecentGmailMessages(
   return writeGmailCache(cacheKey, messages);
 }
 
-function getMailboxListOptions(mailbox: GmailMailbox) {
+function getMailboxListOptions(mailbox: GmailMailbox, category = "all") {
+  const categoryQuery =
+    category !== "all" && ["primary", "promotions", "social", "updates", "forums"].includes(category)
+      ? `category:${category}`
+      : "";
+
   if (mailbox === "unread") {
-    return { query: "is:unread" };
+    return { query: ["is:unread", categoryQuery].filter(Boolean).join(" ") };
   }
 
   if (mailbox === "important") {
@@ -842,6 +928,10 @@ function getMailboxListOptions(mailbox: GmailMailbox) {
 
   if (mailbox === "followups") {
     return { query: "newer_than:30d" };
+  }
+
+  if (categoryQuery) {
+    return { query: `in:inbox ${categoryQuery}` };
   }
 
   return { labelId: "INBOX" };
@@ -886,7 +976,45 @@ async function listRecentGmailMessageIds(
   return list.messages ?? [];
 }
 
-async function getGmailLabels(account: string, accessToken: string) {
+async function getGmailCategoryCounts(accessToken: string) {
+  const categories: Array<"primary" | "promotions" | "social" | "updates"> = [
+    "primary",
+    "promotions",
+    "social",
+    "updates",
+  ];
+  const estimates = await mapWithConcurrency(categories, 4, async (category) => {
+    const params = new URLSearchParams({
+      maxResults: "1",
+      q: `in:inbox category:${category}`,
+    });
+    const response = await fetch(
+      `https://gmail.googleapis.com/gmail/v1/users/me/messages?${params.toString()}`,
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        cache: "no-store",
+      },
+    );
+
+    if (!response.ok) {
+      return [category, 0] as const;
+    }
+
+    const data = (await response.json()) as { resultSizeEstimate?: number };
+    return [category, data.resultSizeEstimate ?? 0] as const;
+  });
+
+  return Object.fromEntries(estimates) as Record<
+    "primary" | "promotions" | "social" | "updates",
+    number
+  >;
+}
+
+async function getGmailLabels(
+  account: string,
+  accessToken: string,
+  includeSystemCounts = false,
+) {
   const response = await fetch(
     "https://gmail.googleapis.com/gmail/v1/users/me/labels",
     {
@@ -912,27 +1040,74 @@ async function getGmailLabels(account: string, accessToken: string) {
     }>;
   };
 
-  return (data.labels ?? [])
-    .filter((label) => label.type === "user")
-    .map((label) => ({
+  const labels = data.labels ?? [];
+  const countLabelIds = new Set([
+    "INBOX",
+    "UNREAD",
+    "STARRED",
+    "IMPORTANT",
+    "SENT",
+    "DRAFT",
+    "SPAM",
+    "TRASH",
+    "CATEGORY_PRIMARY",
+    "CATEGORY_PROMOTIONS",
+    "CATEGORY_SOCIAL",
+    "CATEGORY_UPDATES",
+  ]);
+  const detailedSystemLabels = includeSystemCounts
+    ? await mapWithConcurrency(
+        labels.filter((label) => countLabelIds.has(label.id)),
+        4,
+        async (label) => {
+          const detailResponse = await fetch(
+            `https://gmail.googleapis.com/gmail/v1/users/me/labels/${label.id}`,
+            {
+              headers: { Authorization: `Bearer ${accessToken}` },
+              cache: "no-store",
+            },
+          );
+
+          return detailResponse.ok
+            ? ((await detailResponse.json()) as typeof label)
+            : label;
+        },
+      )
+    : [];
+  const detailsById = new Map(
+    detailedSystemLabels.map((label) => [label.id, label]),
+  );
+
+  return labels.map((label) => {
+    const detail = detailsById.get(label.id) ?? label;
+
+    return {
       id: label.id,
       name: label.name,
       type: label.type,
-      messagesTotal: label.messagesTotal,
-      unreadTotal: label.messagesUnread,
+      messagesTotal: detail.messagesTotal,
+      unreadTotal: detail.messagesUnread,
       account,
-    }));
+    };
+  });
 }
 
-async function getCachedGmailLabels(account: string, accessToken: string) {
-  const cacheKey = `labels:${account}`;
+async function getCachedGmailLabels(
+  account: string,
+  accessToken: string,
+  includeSystemCounts = false,
+) {
+  const cacheKey = `labels:${account}:${includeSystemCounts ? "detailed" : "basic"}`;
   const cachedLabels = readGmailCache<GmailDashboardLabel[]>(cacheKey);
 
   if (cachedLabels) {
     return cachedLabels;
   }
 
-  return writeGmailCache(cacheKey, await getGmailLabels(account, accessToken));
+  return writeGmailCache(
+    cacheKey,
+    await getGmailLabels(account, accessToken, includeSystemCounts),
+  );
 }
 
 export async function storeEncryptedGmailConnection(

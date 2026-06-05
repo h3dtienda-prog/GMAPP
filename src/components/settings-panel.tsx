@@ -221,9 +221,14 @@ export function SettingsPanel({
         darkButton:
           window.localStorage.getItem("mails-color-dark-button") ??
           defaults.darkButton,
-        loginTitle: defaults.loginTitle,
-        loginSubtitle: defaults.loginSubtitle,
-        loginLogoUrl: defaults.loginLogoUrl,
+        loginTitle:
+          window.localStorage.getItem("mails-login-title") ?? defaults.loginTitle,
+        loginSubtitle:
+          window.localStorage.getItem("mails-login-subtitle") ??
+          defaults.loginSubtitle,
+        loginLogoUrl:
+          window.localStorage.getItem("mails-login-logo-url") ??
+          defaults.loginLogoUrl,
       };
 
       const preferences = await fetch("/api/preferences", { cache: "no-store" })
@@ -328,6 +333,15 @@ export function SettingsPanel({
     window.localStorage.setItem(
       "mails-color-dark-button",
       nextPreferences.darkButton,
+    );
+    window.localStorage.setItem("mails-login-title", nextPreferences.loginTitle);
+    window.localStorage.setItem(
+      "mails-login-subtitle",
+      nextPreferences.loginSubtitle,
+    );
+    window.localStorage.setItem(
+      "mails-login-logo-url",
+      nextPreferences.loginLogoUrl,
     );
     document.documentElement.classList.toggle("dark", theme === "dark");
     applyCustomColors(nextPreferences);
@@ -510,6 +524,14 @@ export function SettingsPanel({
                       />
                     </label>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => void savePreferences()}
+                    className="flex h-11 w-fit items-center gap-2 rounded-full bg-[#0b57d0] px-5 text-sm font-semibold text-white"
+                  >
+                    <Save size={17} />
+                    Guardar pantalla de acceso
+                  </button>
                 </div>
               </div>
 
