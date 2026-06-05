@@ -3,9 +3,16 @@ import { performGmailMessagesAction } from "@/lib/gmail";
 
 export const runtime = "nodejs";
 
-type GmailMessageAction = "archive" | "star" | "unstar" | "read" | "unread" | "label";
+type GmailMessageAction =
+  | "archive"
+  | "star"
+  | "unstar"
+  | "read"
+  | "unread"
+  | "label";
 
 export async function POST(request: NextRequest) {
+  const wantsJson = request.headers.get("accept")?.includes("application/json");
   const formData = await request.formData();
   const action = String(formData.get("action") ?? "") as GmailMessageAction;
   const accounts = formData.getAll("account").map(String);
@@ -22,7 +29,9 @@ export async function POST(request: NextRequest) {
     accounts.length !== gmailIds.length ||
     !isMessageAction(action)
   ) {
-    return redirectWithError(request.nextUrl.origin, redirectTo, "Accion invalida.");
+    return wantsJson
+      ? NextResponse.json({ error: "Accion invalida." }, { status: 400 })
+      : redirectWithError(request.nextUrl.origin, redirectTo, "Accion invalida.");
   }
 
   const grouped = new Map<string, string[]>();
@@ -45,20 +54,22 @@ export async function POST(request: NextRequest) {
   );
 
   if (failures.length > 0) {
-    return redirectWithError(
-      request.nextUrl.origin,
-      redirectTo,
-      failures
-        .map((failure) =>
-          failure.reason instanceof Error
-            ? failure.reason.message
-            : "No se pudo ejecutar una acción.",
-        )
-        .join(" | "),
-    );
+    const error = failures
+      .map((failure) =>
+        failure.reason instanceof Error
+          ? failure.reason.message
+          : "No se pudo ejecutar una accion.",
+      )
+      .join(" | ");
+
+    return wantsJson
+      ? NextResponse.json({ error }, { status: 502 })
+      : redirectWithError(request.nextUrl.origin, redirectTo, error);
   }
 
-  return NextResponse.redirect(new URL(redirectTo, request.nextUrl.origin));
+  return wantsJson
+    ? NextResponse.json({ ok: true })
+    : NextResponse.redirect(new URL(redirectTo, request.nextUrl.origin));
 }
 
 function isMessageAction(action: string): action is GmailMessageAction {

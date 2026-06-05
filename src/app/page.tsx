@@ -27,6 +27,7 @@ import { ComposeMail } from "@/components/compose-mail";
 import { EmailBodyFrame } from "@/components/email-body-frame";
 import { GmailInboxList, MoveToLabelMenu } from "@/components/gmail-inbox-list";
 import { HeaderIdentity } from "@/components/header-identity";
+import { MarkMessageRead } from "@/components/mark-message-read";
 import { SettingsPanel } from "@/components/settings-panel";
 import { SidebarResizer } from "@/components/sidebar-resizer";
 import {
@@ -351,6 +352,9 @@ function GmailMessageReader({
 
   return (
     <article className="min-h-0 flex-1 rounded-t-3xl bg-white dark:bg-[#1f1f1f]">
+      {thread.labelIds.includes("UNREAD") ? (
+        <MarkMessageRead account={thread.account} gmailId={thread.gmailId} />
+      ) : null}
       <div className="flex h-14 items-center justify-between border-b border-[#e0e0e0] px-5 text-[#5f6368] dark:border-[#3c4043] dark:text-[#bdc1c6]">
         <div className="flex items-center gap-2">
           <Link
