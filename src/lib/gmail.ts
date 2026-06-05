@@ -460,7 +460,7 @@ function addLabelCounts(
     const key = mapping[label.id];
 
     if (key) {
-      counts[key] += label.messagesTotal ?? 0;
+      counts[key] += label.unreadTotal ?? 0;
     }
   }
 }
@@ -812,17 +812,13 @@ async function getRecentGmailMessages(
     return cachedMessages;
   }
 
-  let messageIds = await listRecentGmailMessageIds(
+  const messageIds = await listRecentGmailMessageIds(
     accessToken,
     selectedLabelId
       ? { labelId: selectedLabelId }
       : getMailboxListOptions(mailbox, category),
     maxResults,
   );
-
-  if (messageIds.length === 0 && mailbox === "inbox" && !selectedLabelId) {
-    messageIds = await listRecentGmailMessageIds(accessToken, undefined, maxResults);
-  }
 
   const messages = await mapWithConcurrency(messageIds, 5, async (message) => {
     const response = await fetch(
@@ -983,11 +979,33 @@ async function getGmailCategoryCounts(accessToken: string) {
     "social",
     "updates",
   ];
-  const estimates = await mapWithConcurrency(categories, 4, async (category) => {
+  const estimates = await mapWithConcurrency(categories, 2, async (category) => {
+    return [
+      category,
+      await countGmailMessageIds(accessToken, `in:inbox category:${category}`),
+    ] as const;
+  });
+
+  return Object.fromEntries(estimates) as Record<
+    "primary" | "promotions" | "social" | "updates",
+    number
+  >;
+}
+
+async function countGmailMessageIds(accessToken: string, query: string) {
+  let count = 0;
+  let pageToken: string | undefined;
+
+  do {
     const params = new URLSearchParams({
-      maxResults: "1",
-      q: `in:inbox category:${category}`,
+      maxResults: "500",
+      q: query,
     });
+
+    if (pageToken) {
+      params.set("pageToken", pageToken);
+    }
+
     const response = await fetch(
       `https://gmail.googleapis.com/gmail/v1/users/me/messages?${params.toString()}`,
       {
@@ -997,17 +1015,18 @@ async function getGmailCategoryCounts(accessToken: string) {
     );
 
     if (!response.ok) {
-      return [category, 0] as const;
+      return count;
     }
 
-    const data = (await response.json()) as { resultSizeEstimate?: number };
-    return [category, data.resultSizeEstimate ?? 0] as const;
-  });
+    const data = (await response.json()) as {
+      messages?: Array<{ id: string }>;
+      nextPageToken?: string;
+    };
+    count += data.messages?.length ?? 0;
+    pageToken = data.nextPageToken;
+  } while (pageToken && count < 5000);
 
-  return Object.fromEntries(estimates) as Record<
-    "primary" | "promotions" | "social" | "updates",
-    number
-  >;
+  return count;
 }
 
 async function getGmailLabels(

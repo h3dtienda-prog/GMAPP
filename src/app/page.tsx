@@ -888,7 +888,11 @@ export default async function Home({ searchParams }: HomeProps) {
           ) : (
             <GmailInboxList
               accounts={accounts}
-              allCount={activeFolder === "inbox" ? counts.inbox : messages.length}
+              allCount={
+                activeFolder === "inbox" && !activeLabel
+                  ? tabCounts[activeTab as keyof typeof tabCounts]
+                  : messages.length
+              }
               counts={tabCounts}
               currentHref={currentHref}
               labels={labels}
