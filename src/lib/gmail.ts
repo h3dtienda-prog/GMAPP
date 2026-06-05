@@ -398,7 +398,7 @@ export async function getGmailDashboardData(
         counts.social = categoryCounts.social;
         counts.updates = categoryCounts.updates;
         const primaryLabel = accountLabels.find(
-          (label) => label.id === "CATEGORY_PRIMARY",
+          (label) => label.id === "CATEGORY_PERSONAL",
         );
         counts.inbox = primaryLabel?.threadsUnread ?? counts.inbox;
       }
@@ -460,6 +460,7 @@ function addLabelCounts(
     SPAM: "spam",
     TRASH: "trash",
     CATEGORY_PRIMARY: "primary",
+    CATEGORY_PERSONAL: "primary",
     CATEGORY_PROMOTIONS: "promotions",
     CATEGORY_SOCIAL: "social",
     CATEGORY_UPDATES: "updates",
@@ -1191,6 +1192,7 @@ async function getGmailLabels(
     "SPAM",
     "TRASH",
     "CATEGORY_PRIMARY",
+    "CATEGORY_PERSONAL",
     "CATEGORY_PROMOTIONS",
     "CATEGORY_SOCIAL",
     "CATEGORY_UPDATES",

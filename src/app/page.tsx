@@ -171,26 +171,6 @@ function messageMatchesQuery(message: GmailDashboardMessage, query: string) {
     .some((value) => value!.toLowerCase().includes(normalizedQuery));
 }
 
-function getMessageCategory(message: GmailDashboardMessage) {
-  if (message.labelIds.includes("CATEGORY_PROMOTIONS")) return "promotions";
-  if (message.labelIds.includes("CATEGORY_SOCIAL")) return "social";
-  if (message.labelIds.includes("CATEGORY_UPDATES")) return "updates";
-  if (message.labelIds.includes("CATEGORY_FORUMS")) return "forums";
-  return "primary";
-}
-
-function filterMessages(
-  messages: GmailDashboardMessage[],
-  tab: string,
-  query: string,
-) {
-  return messages.filter(
-    (message) =>
-      (tab === "all" || getMessageCategory(message) === tab) &&
-      messageMatchesQuery(message, query),
-  );
-}
-
 function getFolder(value: string | undefined) {
   if (
     value === "unread" ||
@@ -495,9 +475,7 @@ export default async function Home({ searchParams }: HomeProps) {
     messageMatchesQuery(message, query),
   );
   const showCategoryTabs = activeFolder === "inbox" && !activeLabel;
-  const visibleMessages = showCategoryTabs
-    ? filterMessages(queryMatchedMessages, activeTab, "")
-    : queryMatchedMessages;
+  const visibleMessages = queryMatchedMessages;
   const tabCounts = {
     primary: counts.primary,
     promotions: counts.promotions,
