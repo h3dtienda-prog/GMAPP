@@ -17,7 +17,6 @@ import {
   Send,
   Settings,
   SlidersHorizontal,
-  SmilePlus,
   Star,
   Trash2,
 } from "lucide-react";
@@ -25,15 +24,18 @@ import Link from "next/link";
 import { AccountsList } from "@/components/accounts-list";
 import { AppPreferences, ThemeToggle } from "@/components/app-preferences";
 import { ComposeMail } from "@/components/compose-mail";
+import { EmailBodyFrame } from "@/components/email-body-frame";
 import { GmailInboxList, MoveToLabelMenu } from "@/components/gmail-inbox-list";
 import { HeaderIdentity } from "@/components/header-identity";
 import { SettingsPanel } from "@/components/settings-panel";
 import { SidebarResizer } from "@/components/sidebar-resizer";
 import {
   getGmailDashboardData,
+  getGmailThreadDetail,
   type GmailDashboardAccount,
   type GmailDashboardLabel,
   type GmailDashboardMessage,
+  type GmailThreadDetail,
 } from "@/lib/gmail";
 
 export const dynamic = "force-dynamic";
@@ -103,6 +105,19 @@ function buildMessageHref(message: GmailDashboardMessage, account?: string) {
     ...(account ? { account } : {}),
     message: message.id,
   }).toString()}`;
+}
+
+function parseMessageKey(messageKey: string | undefined) {
+  const separator = messageKey?.lastIndexOf(":") ?? -1;
+
+  if (!messageKey || separator < 1 || separator === messageKey.length - 1) {
+    return null;
+  }
+
+  return {
+    account: messageKey.slice(0, separator),
+    threadId: messageKey.slice(separator + 1),
+  };
 }
 
 function buildListHref({
@@ -306,19 +321,33 @@ function MessageActionForm({
 function GmailMessageReader({
   accounts,
   labels,
-  message,
-  selectedAccount,
+  thread,
+  backHref,
 }: {
   accounts: GmailDashboardAccount[];
   labels: GmailDashboardLabel[];
-  message: GmailDashboardMessage;
-  selectedAccount?: string;
+  thread: GmailThreadDetail;
+  backHref: string;
 }) {
-  const accountLabel = getAccountLabel(accounts, message.account);
-  const backHref = selectedAccount
-    ? `/?account=${encodeURIComponent(selectedAccount)}`
-    : "/";
-  const redirectTo = buildMessageHref(message, selectedAccount);
+  const accountLabel = getAccountLabel(accounts, thread.account);
+  const latestMessage = thread.messages.at(-1);
+  const actionMessage: GmailDashboardMessage = {
+    id: thread.id,
+    gmailId: thread.gmailId,
+    account: thread.account,
+    sender: latestMessage?.sender ?? "Remitente",
+    fromEmail: latestMessage?.fromEmail,
+    subject: thread.subject,
+    preview: latestMessage?.text ?? "",
+    time: latestMessage?.time ?? "",
+    tag: thread.labelIds.includes("IMPORTANT") ? "Importante" : "Inbox",
+    state: thread.labelIds.includes("UNREAD") ? "No leido" : "Leido",
+    unread: thread.labelIds.includes("UNREAD"),
+    attachment: thread.messages.some((message) => message.attachments.length > 0),
+    to: latestMessage?.to,
+    labelIds: thread.labelIds,
+  };
+  const redirectTo = buildMessageHref(actionMessage, thread.account);
 
   return (
     <article className="min-h-0 flex-1 rounded-t-3xl bg-white dark:bg-[#1f1f1f]">
@@ -335,8 +364,8 @@ function GmailMessageReader({
           </Link>
           <MessageActionForm
             action="archive"
-            account={message.account}
-            gmailId={message.gmailId}
+            account={thread.account}
+            gmailId={thread.gmailId}
             redirectTo={backHref}
             label="Archivar"
           >
@@ -351,8 +380,8 @@ function GmailMessageReader({
           </button>
           <MessageActionForm
             action="star"
-            account={message.account}
-            gmailId={message.gmailId}
+            account={thread.account}
+            gmailId={thread.gmailId}
             redirectTo={redirectTo}
             label="Marcar importante"
           >
@@ -366,8 +395,8 @@ function GmailMessageReader({
             <MoreVertical size={18} />
           </button>
           <MoveToLabelMenu
-            labels={labels.filter((label) => label.account === message.account)}
-            messages={[message]}
+            labels={labels.filter((label) => label.account === thread.account)}
+            messages={[actionMessage]}
             redirectTo={backHref}
           />
         </div>
@@ -381,62 +410,75 @@ function GmailMessageReader({
         </div>
       </div>
 
-      <div className="px-8 py-8">
+      <div className="px-5 py-7 md:px-10">
         <div className="flex items-start justify-between gap-4">
           <h2 className="text-2xl font-normal text-[#202124] dark:text-[#e8eaed]">
-            {message.subject}
+            {thread.subject}
             <span className="ml-3 rounded bg-[#e8eaed] px-2 py-1 text-xs text-[#5f6368]">
               Recibidos
             </span>
           </h2>
-          <span className="shrink-0 text-sm text-[#5f6368]">{message.time}</span>
+          <span className="shrink-0 text-sm text-[#5f6368]">{latestMessage?.time}</span>
         </div>
 
-        <div className="mt-6 flex items-start gap-4">
-          <div className="grid size-10 shrink-0 place-items-center rounded-full bg-[#e8eaed] text-[#5f6368]">
-            {message.sender.slice(0, 1).toUpperCase()}
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <strong>{message.sender}</strong>
-              {message.fromEmail ? (
-                <span className="text-sm text-[#5f6368]">
-                  &lt;{message.fromEmail}&gt;
-                </span>
-              ) : null}
-            </div>
-            <p className="text-sm text-[#5f6368] dark:text-[#bdc1c6]">
-              para {message.to ?? accountLabel}
-            </p>
-          </div>
-          <div className="flex items-center gap-3 text-[#5f6368] dark:text-[#bdc1c6]">
-            <span title="Destacar">
-              <Star size={18} />
-            </span>
-            <span title="Agregar reaccion">
-              <SmilePlus size={18} />
-            </span>
-            <span title="Responder">
-              <Reply size={18} />
-            </span>
-            <span title="Mas opciones">
-              <MoreVertical size={18} />
-            </span>
-          </div>
+        <div className="mt-6 space-y-8">
+          {thread.messages.map((message) => (
+            <section key={message.id}>
+              <div className="flex items-start gap-4">
+                <div className="grid size-10 shrink-0 place-items-center rounded-full bg-[#e8eaed] text-[#5f6368]">
+                  {message.sender.slice(0, 1).toUpperCase()}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <strong>{message.sender}</strong>
+                    {message.fromEmail ? (
+                      <span className="text-sm text-[#5f6368]">
+                        &lt;{message.fromEmail}&gt;
+                      </span>
+                    ) : null}
+                  </div>
+                  <p className="text-sm text-[#5f6368] dark:text-[#bdc1c6]">
+                    para {message.to ?? accountLabel}
+                    {message.cc ? ` · cc ${message.cc}` : ""}
+                  </p>
+                </div>
+                <div className="flex items-center gap-3 text-[#5f6368] dark:text-[#bdc1c6]">
+                  <span className="text-xs">{message.time}</span>
+                  <span title="Destacar"><Star size={18} /></span>
+                  <span title="Responder"><Reply size={18} /></span>
+                  <span title="Mas opciones"><MoreVertical size={18} /></span>
+                </div>
+              </div>
+
+              <div className="mt-6 pl-0 md:pl-14">
+                {message.html ? (
+                  <EmailBodyFrame html={message.html} title={thread.subject} />
+                ) : (
+                  <pre className="whitespace-pre-wrap font-sans text-sm leading-6 text-[#202124] dark:text-[#e8eaed]">
+                    {message.text || "Este correo no contiene un cuerpo visible."}
+                  </pre>
+                )}
+                {message.attachments.length > 0 ? (
+                  <div className="mt-6 flex flex-wrap gap-2">
+                    {message.attachments.map((attachment) => (
+                      <span
+                        key={`${message.id}:${attachment.filename}`}
+                        className="rounded-lg border border-[#dadce0] px-3 py-2 text-sm dark:border-[#3c4043]"
+                        title={attachment.mimeType}
+                      >
+                        {attachment.filename}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            </section>
+          ))}
         </div>
 
-        <div className="mx-auto mt-10 max-w-2xl rounded-lg border border-[#dadce0] px-8 py-10 text-center shadow-sm dark:border-[#3c4043]">
-          <p className="text-sm font-semibold text-[#4285f4]">{accountLabel}</p>
-          <h3 className="mt-5 text-2xl font-normal">{message.subject}</h3>
-          <div className="mx-auto mt-8 h-px max-w-md bg-[#dadce0]" />
-          <p className="mx-auto mt-6 max-w-xl text-sm leading-7 text-[#3c4043] dark:text-[#bdc1c6]">
-            {message.preview || "Sin vista previa disponible."}
-          </p>
-        </div>
-
-        <div className="mt-28 flex gap-2">
+        <div className="mt-12 flex gap-2">
           <a
-            href={`mailto:${message.fromEmail ?? ""}?subject=${encodeURIComponent(`Re: ${message.subject}`)}`}
+            href={`mailto:${latestMessage?.fromEmail ?? ""}?subject=${encodeURIComponent(`Re: ${thread.subject}`)}`}
             className="flex h-10 items-center gap-2 rounded-full border border-[#dadce0] px-5 text-sm font-medium hover:bg-[#f8fafd]"
           >
             <Reply size={17} />
@@ -455,7 +497,8 @@ function GmailMessageReader({
 export default async function Home({ searchParams }: HomeProps) {
   const params = await searchParams;
   const gmailStatus = getGmailStatus(params);
-  const selectedAccount = params.account;
+  const requestedMessage = parseMessageKey(params.message);
+  const selectedAccount = params.account ?? requestedMessage?.account;
   const activeFolder = getFolder(params.folder);
   const activeLabel = selectedAccount ? params.label : undefined;
   const activeTab = params.tab ?? "primary";
@@ -464,7 +507,7 @@ export default async function Home({ searchParams }: HomeProps) {
     selectedAccount,
     activeFolder,
     activeLabel,
-    !params.settings,
+    !params.settings && !requestedMessage,
     activeTab,
   );
   const visibleGmailStatus =
@@ -532,9 +575,19 @@ export default async function Home({ searchParams }: HomeProps) {
       tab: activeTab,
     }),
   };
-  const selectedMessage = params.message
-    ? messages.find((message) => message.id === params.message) ?? null
-    : null;
+  let selectedThread: GmailThreadDetail | null = null;
+  let threadError: string | null = null;
+
+  if (requestedMessage) {
+    try {
+      selectedThread = await getGmailThreadDetail(
+        requestedMessage.account,
+        requestedMessage.threadId,
+      );
+    } catch (error) {
+      threadError = error instanceof Error ? error.message : "No se pudo abrir el correo.";
+    }
+  }
   const unreadCount = counts.unread;
   const importantCount = counts.important;
   const unifiedFolders = [
@@ -546,7 +599,7 @@ export default async function Home({ searchParams }: HomeProps) {
       active:
         !selectedAccount &&
         !params.settings &&
-        !selectedMessage &&
+        !selectedThread &&
         !activeLabel &&
         activeFolder === "inbox",
     },
@@ -847,18 +900,24 @@ export default async function Home({ searchParams }: HomeProps) {
               <p className="mt-1 break-words">{error}</p>
             </div>
           ) : null}
+          {threadError ? (
+            <div className="mx-5 mb-3 rounded-lg border border-[#f5c2c7] bg-[#fce8e6] px-4 py-3 text-sm text-[#a50e0e]">
+              <p className="font-semibold">No se pudo abrir el correo</p>
+              <p className="mt-1 break-words">{threadError}</p>
+            </div>
+          ) : null}
 
           {params.settings ? (
             <SettingsPanel
               accounts={accounts}
               section={params.settings}
             />
-          ) : selectedMessage ? (
+          ) : selectedThread ? (
             <GmailMessageReader
               accounts={accounts}
+              backHref={currentHref}
               labels={labels}
-              message={selectedMessage}
-              selectedAccount={selectedAccount}
+              thread={selectedThread}
             />
           ) : (
             <GmailInboxList
@@ -867,7 +926,6 @@ export default async function Home({ searchParams }: HomeProps) {
               currentHref={currentHref}
               labels={labels}
               messages={visibleMessages}
-              selectedAccount={selectedAccount}
               showTabs={showCategoryTabs}
               tab={activeTab}
               tabHrefs={tabHrefs}

@@ -25,7 +25,6 @@ type GmailInboxListProps = {
   currentHref: string;
   labels: GmailDashboardLabel[];
   messages: GmailDashboardMessage[];
-  selectedAccount?: string;
   showTabs: boolean;
   tab: string;
   tabHrefs: Record<string, string>;
@@ -39,11 +38,11 @@ function getAccountLabel(
     address;
 }
 
-function buildMessageHref(message: GmailDashboardMessage, account?: string) {
-  return `/?${new URLSearchParams({
-    ...(account ? { account } : {}),
-    message: message.id,
-  }).toString()}`;
+function buildMessageHref(message: GmailDashboardMessage, currentHref: string) {
+  const params = new URLSearchParams(currentHref.split("?")[1] ?? "");
+  params.set("account", message.account);
+  params.set("message", message.id);
+  return `/?${params.toString()}`;
 }
 
 function getSelectedGmailMessages(
@@ -174,7 +173,6 @@ export function GmailInboxList({
   currentHref,
   labels,
   messages,
-  selectedAccount,
   showTabs,
   tab,
   tabHrefs,
@@ -392,14 +390,14 @@ export function GmailInboxList({
                   <Star size={16} />
                 </ActionForm>
                 <Link
-                  href={buildMessageHref(message, selectedAccount)}
+                  href={buildMessageHref(message, currentHref)}
                   prefetch={false}
                   className="truncate"
                 >
                   {message.sender}
                 </Link>
                 <Link
-                  href={buildMessageHref(message, selectedAccount)}
+                  href={buildMessageHref(message, currentHref)}
                   prefetch={false}
                   className="min-w-0 truncate text-[#5f6368] dark:text-[#bdc1c6]"
                 >

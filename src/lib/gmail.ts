@@ -87,6 +87,31 @@ export type GmailDashboardMessage = {
   labelIds: string[];
 };
 
+export type GmailThreadMessage = {
+  id: string;
+  sender: string;
+  fromEmail?: string;
+  to?: string;
+  cc?: string;
+  time: string;
+  html?: string;
+  text?: string;
+  attachments: Array<{
+    filename: string;
+    mimeType: string;
+    size: number;
+  }>;
+};
+
+export type GmailThreadDetail = {
+  id: string;
+  gmailId: string;
+  account: string;
+  subject: string;
+  labelIds: string[];
+  messages: GmailThreadMessage[];
+};
+
 export type GmailDashboardLabel = {
   id: string;
   name: string;
@@ -417,6 +442,228 @@ export async function getGmailDashboardData(
     counts,
     error: connectionErrors.length > 0 ? connectionErrors.join("\n") : null,
   };
+}
+
+type GmailMimePart = {
+  mimeType?: string;
+  filename?: string;
+  headers?: Array<{ name: string; value: string }>;
+  body?: {
+    attachmentId?: string;
+    data?: string;
+    size?: number;
+  };
+  parts?: GmailMimePart[];
+};
+
+type GmailFullMessage = {
+  id: string;
+  labelIds?: string[];
+  payload?: GmailMimePart;
+};
+
+function flattenGmailMimeParts(part: GmailMimePart | undefined): GmailMimePart[] {
+  if (!part) {
+    return [];
+  }
+
+  return [part, ...(part.parts ?? []).flatMap(flattenGmailMimeParts)];
+}
+
+function decodeGmailBody(data: string) {
+  return Buffer.from(data.replaceAll("-", "+").replaceAll("_", "/"), "base64")
+    .toString("utf8");
+}
+
+function getGmailPartHeader(part: GmailMimePart, name: string) {
+  return part.headers?.find(
+    (header) => header.name.toLowerCase() === name.toLowerCase(),
+  )?.value;
+}
+
+async function readGmailMimeData(
+  accessToken: string,
+  messageId: string,
+  part: GmailMimePart | undefined,
+) {
+  if (!part?.body) {
+    return undefined;
+  }
+
+  if (part.body.data) {
+    return part.body.data;
+  }
+
+  if (!part.body.attachmentId) {
+    return undefined;
+  }
+
+  const response = await fetch(
+    `https://gmail.googleapis.com/gmail/v1/users/me/messages/${messageId}/attachments/${part.body.attachmentId}`,
+    {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      cache: "no-store",
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(`Gmail attachment body request failed: ${await response.text()}`);
+  }
+
+  return ((await response.json()) as { data?: string }).data;
+}
+
+async function readGmailMimeBody(
+  accessToken: string,
+  messageId: string,
+  part: GmailMimePart | undefined,
+) {
+  const data = await readGmailMimeData(accessToken, messageId, part);
+  return data ? decodeGmailBody(data) : undefined;
+}
+
+async function fetchGmailThreadDetail(
+  account: string,
+  threadId: string,
+  accessToken: string,
+) {
+  const response = await fetch(
+    `https://gmail.googleapis.com/gmail/v1/users/me/threads/${threadId}?format=full`,
+    {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      cache: "no-store",
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(`Gmail thread request failed: ${await response.text()}`);
+  }
+
+  const thread = (await response.json()) as {
+    id: string;
+    messages?: GmailFullMessage[];
+  };
+  const messages = await mapWithConcurrency(
+    thread.messages ?? [],
+    3,
+    async (message): Promise<GmailThreadMessage> => {
+      const parts = flattenGmailMimeParts(message.payload);
+      const headers = new Map(
+        (message.payload?.headers ?? []).map((header) => [
+          header.name.toLowerCase(),
+          header.value,
+        ]),
+      );
+      const htmlPart = parts.find(
+        (part) => part.mimeType === "text/html" && !part.filename,
+      );
+      const textPart = parts.find(
+        (part) => part.mimeType === "text/plain" && !part.filename,
+      );
+      const from = headers.get("from") ?? "Remitente";
+      const date = headers.get("date");
+      let html = await readGmailMimeBody(accessToken, message.id, htmlPart);
+
+      if (html) {
+        const inlineImages = await mapWithConcurrency(
+          parts.filter(
+            (part) =>
+              part.mimeType?.startsWith("image/") &&
+              Boolean(getGmailPartHeader(part, "content-id")),
+          ),
+          3,
+          async (part) => ({
+            contentId: getGmailPartHeader(part, "content-id")!
+              .replace(/^<|>$/g, ""),
+            data: await readGmailMimeData(accessToken, message.id, part),
+            mimeType: part.mimeType!,
+          }),
+        );
+
+        for (const image of inlineImages) {
+          if (image.data) {
+            const base64 = image.data.replaceAll("-", "+").replaceAll("_", "/");
+            html = html.replaceAll(
+              `cid:${image.contentId}`,
+              `data:${image.mimeType};base64,${base64}`,
+            );
+          }
+        }
+      }
+
+      return {
+        id: message.id,
+        sender: cleanEmailName(from),
+        fromEmail: extractEmailAddress(from),
+        to: headers.get("to"),
+        cc: headers.get("cc"),
+        time: date ? formatMessageDate(date) : "",
+        html,
+        text: await readGmailMimeBody(accessToken, message.id, textPart),
+        attachments: parts
+          .filter((part) => Boolean(part.filename))
+          .map((part) => ({
+            filename: part.filename!,
+            mimeType: part.mimeType ?? "application/octet-stream",
+            size: part.body?.size ?? 0,
+          })),
+      };
+    },
+  );
+  const firstMessage = thread.messages?.[0];
+  const firstHeaders = new Map(
+    (firstMessage?.payload?.headers ?? []).map((header) => [
+      header.name.toLowerCase(),
+      header.value,
+    ]),
+  );
+
+  return {
+    id: `${account}:${thread.id}`,
+    gmailId: thread.id,
+    account,
+    subject: firstHeaders.get("subject") || "(sin asunto)",
+    labelIds: Array.from(
+      new Set((thread.messages ?? []).flatMap((message) => message.labelIds ?? [])),
+    ),
+    messages,
+  } satisfies GmailThreadDetail;
+}
+
+export async function getGmailThreadDetail(account: string, threadId: string) {
+  const cacheKey = `thread-detail:${account}:${threadId}`;
+  const cached = readGmailCache<GmailThreadDetail>(cacheKey);
+
+  if (cached) {
+    return cached;
+  }
+
+  const row = await getGmailConnectionRow(account);
+
+  if (!row) {
+    throw new Error("Gmail account is not connected.");
+  }
+
+  const payload = decryptGmailPayload(row.encrypted_payload);
+  let tokens = await ensureFreshGmailTokens(payload);
+  let detail: GmailThreadDetail;
+
+  try {
+    detail = await fetchGmailThreadDetail(account, threadId, tokens.access_token);
+  } catch (error) {
+    if (!isInvalidGoogleCredentialsError(error) || !payload.tokens.refresh_token) {
+      throw error;
+    }
+
+    tokens = await refreshGmailAccessToken(payload.tokens.refresh_token);
+    detail = await fetchGmailThreadDetail(account, threadId, tokens.access_token);
+  }
+
+  if (tokens.access_token !== payload.tokens.access_token) {
+    await storeEncryptedGmailConnection(payload.profile, tokens);
+  }
+
+  return writeGmailCache(cacheKey, detail);
 }
 
 function emptyDashboardCounts(): GmailDashboardCounts {
