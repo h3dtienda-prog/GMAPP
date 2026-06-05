@@ -365,12 +365,12 @@ export function GmailInboxList({
             return (
               <div
                 key={message.id}
-                className={`grid min-h-10 grid-cols-[28px_28px_minmax(120px,180px)_minmax(0,1fr)_92px] items-center gap-2 px-5 py-2 text-sm hover:shadow-[inset_1px_0_0_#dadce0,inset_-1px_0_0_#dadce0,0_1px_2px_rgba(60,64,67,.18),0_1px_3px_1px_rgba(60,64,67,.10)] ${
+                className={`relative grid min-h-10 grid-cols-[28px_28px_minmax(120px,180px)_minmax(0,1fr)_92px] items-center gap-2 px-5 py-2 text-sm hover:shadow-[inset_1px_0_0_#dadce0,inset_-1px_0_0_#dadce0,0_1px_2px_rgba(60,64,67,.18),0_1px_3px_1px_rgba(60,64,67,.10)] ${
                   isSelected
                     ? "bg-[#c2e7ff] dark:bg-[#394457]"
                     : message.unread
-                      ? "bg-white font-semibold dark:bg-[#26272a]"
-                      : "bg-[#f2f6fc] dark:bg-[#232427]"
+                      ? "bg-white font-semibold shadow-[inset_4px_0_0_#0b57d0] dark:bg-[#292a2d] dark:shadow-[inset_4px_0_0_#8ab4f8]"
+                      : "bg-[#f2f6fc] font-normal text-[#5f6368] dark:bg-[#202124] dark:text-[#bdc1c6]"
                 }`}
               >
                 <input
@@ -392,16 +392,31 @@ export function GmailInboxList({
                 <Link
                   href={buildMessageHref(message, currentHref)}
                   prefetch={false}
-                  className="truncate"
+                  className="flex min-w-0 items-center gap-2 truncate"
                 >
-                  {message.sender}
+                  {message.unread ? (
+                    <span
+                      className="size-2 shrink-0 rounded-full bg-[#0b57d0] dark:bg-[#8ab4f8]"
+                      aria-label="Sin leer"
+                      title="Sin leer"
+                    />
+                  ) : null}
+                  <span className="truncate">{message.sender}</span>
                 </Link>
                 <Link
                   href={buildMessageHref(message, currentHref)}
                   prefetch={false}
                   className="min-w-0 truncate text-[#5f6368] dark:text-[#bdc1c6]"
                 >
-                  <strong className="text-[#202124] dark:text-[#e8eaed]">{message.subject}</strong>
+                  <span
+                    className={
+                      message.unread
+                        ? "font-semibold text-[#202124] dark:text-[#e8eaed]"
+                        : "font-normal text-[#3c4043] dark:text-[#bdc1c6]"
+                    }
+                  >
+                    {message.subject}
+                  </span>
                   {" - "}
                   {message.preview}
                   <span className="ml-2 rounded-full bg-[#e6f4ea] px-2 py-0.5 text-xs font-semibold text-[#137333]">
