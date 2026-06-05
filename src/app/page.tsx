@@ -494,7 +494,10 @@ export default async function Home({ searchParams }: HomeProps) {
   const queryMatchedMessages = messages.filter((message) =>
     messageMatchesQuery(message, query),
   );
-  const visibleMessages = filterMessages(queryMatchedMessages, activeTab, "");
+  const showCategoryTabs = activeFolder === "inbox" && !activeLabel;
+  const visibleMessages = showCategoryTabs
+    ? filterMessages(queryMatchedMessages, activeTab, "")
+    : queryMatchedMessages;
   const tabCounts = {
     primary: counts.primary,
     promotions: counts.promotions,
@@ -893,11 +896,11 @@ export default async function Home({ searchParams }: HomeProps) {
                   ? tabCounts[activeTab as keyof typeof tabCounts]
                   : messages.length
               }
-              counts={tabCounts}
               currentHref={currentHref}
               labels={labels}
               messages={visibleMessages}
               selectedAccount={selectedAccount}
+              showTabs={showCategoryTabs}
               tab={activeTab}
               tabHrefs={tabHrefs}
             />

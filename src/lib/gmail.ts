@@ -336,7 +336,7 @@ export async function getGmailDashboardData(
   const labels: GmailDashboardLabel[] = [];
   const connectionErrors: string[] = [];
   const counts = emptyDashboardCounts();
-  const maxMessagesPerAccount = selectedAccount ? 25 : 8;
+  const maxMessagesPerAccount = selectedAccount ? 50 : 8;
 
   if (!loadMessages) {
     return {
@@ -397,6 +397,10 @@ export async function getGmailDashboardData(
         counts.promotions = categoryCounts.promotions;
         counts.social = categoryCounts.social;
         counts.updates = categoryCounts.updates;
+        const primaryLabel = accountLabels.find(
+          (label) => label.id === "CATEGORY_PRIMARY",
+        );
+        counts.inbox = primaryLabel?.threadsUnread ?? counts.inbox;
       }
 
       if (tokens.access_token !== payload.tokens.access_token) {

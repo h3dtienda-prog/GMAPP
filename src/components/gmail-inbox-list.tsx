@@ -22,11 +22,11 @@ import type {
 type GmailInboxListProps = {
   accounts: GmailDashboardAccount[];
   allCount: number;
-  counts: Record<string, number>;
   currentHref: string;
   labels: GmailDashboardLabel[];
   messages: GmailDashboardMessage[];
   selectedAccount?: string;
+  showTabs: boolean;
   tab: string;
   tabHrefs: Record<string, string>;
 };
@@ -171,11 +171,11 @@ export function MoveToLabelMenu({
 export function GmailInboxList({
   accounts,
   allCount,
-  counts,
   currentHref,
   labels,
   messages,
   selectedAccount,
+  showTabs,
   tab,
   tabHrefs,
 }: GmailInboxListProps) {
@@ -215,10 +215,10 @@ export function GmailInboxList({
   }
 
   const tabs = [
-    { id: "primary", label: "Principal", detail: `${counts.primary ?? 0} correos` },
-    { id: "promotions", label: "Promociones", detail: `${counts.promotions ?? 0} correos` },
-    { id: "social", label: "Social", detail: `${counts.social ?? 0} correos` },
-    { id: "updates", label: "Notificaciones", detail: `${counts.updates ?? 0} correos` },
+    { id: "primary", label: "Principal" },
+    { id: "promotions", label: "Promociones" },
+    { id: "social", label: "Social" },
+    { id: "updates", label: "Notificaciones" },
   ];
 
   return (
@@ -333,31 +333,30 @@ export function GmailInboxList({
         </div>
       </div>
 
-      <div className="grid border-b border-[#e0e0e0] bg-white dark:border-[#3c4043] dark:bg-[#1f1f1f] md:grid-cols-4">
-        {tabs.map((item) => (
-          <Link
-            key={item.id}
-            href={tabHrefs[item.id]}
-            prefetch={false}
-            className={`relative flex h-16 items-center gap-3 px-6 text-sm ${
-              tab === item.id
-                ? "font-semibold text-[#0b57d0] dark:text-[#8ab4f8]"
-                : "text-[#5f6368] dark:text-[#bdc1c6]"
-            }`}
-          >
-            <Tag size={18} />
-            <div className="min-w-0">
-              <p>{item.label}</p>
-              <p className="truncate text-xs font-normal text-[#8a9099] dark:text-[#9aa0a6]">
-                {item.detail}
-              </p>
-            </div>
-            {tab === item.id ? (
-              <span className="absolute bottom-0 left-4 right-4 h-1 rounded-t-full bg-[#0b57d0] dark:bg-[#8ab4f8]" />
-            ) : null}
-          </Link>
-        ))}
-      </div>
+      {showTabs ? (
+        <div className="grid border-b border-[#e0e0e0] bg-white dark:border-[#3c4043] dark:bg-[#1f1f1f] md:grid-cols-4">
+          {tabs.map((item) => (
+            <Link
+              key={item.id}
+              href={tabHrefs[item.id]}
+              prefetch={false}
+              className={`relative flex h-16 items-center gap-3 px-6 text-sm ${
+                tab === item.id
+                  ? "font-semibold text-[#0b57d0] dark:text-[#8ab4f8]"
+                  : "text-[#5f6368] dark:text-[#bdc1c6]"
+              }`}
+            >
+              <Tag size={18} />
+              <div className="min-w-0">
+                <p>{item.label}</p>
+              </div>
+              {tab === item.id ? (
+                <span className="absolute bottom-0 left-4 right-4 h-1 rounded-t-full bg-[#0b57d0] dark:bg-[#8ab4f8]" />
+              ) : null}
+            </Link>
+          ))}
+        </div>
+      ) : null}
 
       <div className="divide-y divide-[#e8eaed] dark:divide-[#3c4043]">
         {messages.length > 0 ? (
