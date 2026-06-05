@@ -94,6 +94,8 @@ export type GmailDashboardLabel = {
   type: "system" | "user";
   messagesTotal?: number;
   unreadTotal?: number;
+  threadsTotal?: number;
+  threadsUnread?: number;
 };
 
 export type GmailDashboardCounts = {
@@ -460,7 +462,7 @@ function addLabelCounts(
     const key = mapping[label.id];
 
     if (key) {
-      counts[key] += label.unreadTotal ?? 0;
+      counts[key] += label.threadsUnread ?? 0;
     }
   }
 }
@@ -486,7 +488,7 @@ export async function performGmailMessageAction({
   const tokens = await ensureFreshGmailTokens(payload);
   const labels = getLabelMutation(action, labelId);
   const response = await fetch(
-    `https://gmail.googleapis.com/gmail/v1/users/me/messages/${gmailId}/modify`,
+    `https://gmail.googleapis.com/gmail/v1/users/me/threads/${gmailId}/modify`,
     {
       method: "POST",
       headers: {
@@ -535,21 +537,26 @@ export async function performGmailMessagesAction({
 
   const payload = decryptGmailPayload(row.encrypted_payload);
   const tokens = await ensureFreshGmailTokens(payload);
-  const response = await fetch(
-    "https://gmail.googleapis.com/gmail/v1/users/me/messages/batchModify",
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${tokens.access_token}`,
-        "Content-Type": "application/json",
+  const mutation = getLabelMutation(action, labelId);
+  const results = await mapWithConcurrency(gmailIds, 4, async (gmailId) => {
+    const response = await fetch(
+      `https://gmail.googleapis.com/gmail/v1/users/me/threads/${gmailId}/modify`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${tokens.access_token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(mutation),
       },
-      body: JSON.stringify({ ids: gmailIds, ...getLabelMutation(action, labelId) }),
-    },
-  );
+    );
 
-  if (!response.ok) {
-    const body = await response.text();
-    throw new Error(`${account}: Gmail action failed: ${body}`);
+    return response.ok ? null : await response.text();
+  });
+  const failed = results.find(Boolean);
+
+  if (failed) {
+    throw new Error(`${account}: Gmail action failed: ${failed}`);
   }
 
   if (tokens.access_token !== payload.tokens.access_token) {
@@ -812,7 +819,7 @@ async function getRecentGmailMessages(
     return cachedMessages;
   }
 
-  const messageIds = await listRecentGmailMessageIds(
+  const threadIds = await listRecentGmailThreadIds(
     accessToken,
     selectedLabelId
       ? { labelId: selectedLabelId }
@@ -820,9 +827,9 @@ async function getRecentGmailMessages(
     maxResults,
   );
 
-  const messages = await mapWithConcurrency(messageIds, 5, async (message) => {
+  const messages = await mapWithConcurrency(threadIds, 5, async (thread) => {
     const response = await fetch(
-      `https://gmail.googleapis.com/gmail/v1/users/me/messages/${message.id}?` +
+      `https://gmail.googleapis.com/gmail/v1/users/me/threads/${thread.id}?` +
         new URLSearchParams({
           format: "metadata",
           metadataHeaders: "From",
@@ -843,15 +850,23 @@ async function getRecentGmailMessages(
 
     const data = (await response.json()) as {
       id: string;
-      labelIds?: string[];
-      snippet?: string;
-      payload?: {
-        headers?: Array<{ name: string; value: string }>;
-        parts?: Array<unknown>;
-      };
+      messages?: Array<{
+        id: string;
+        labelIds?: string[];
+        snippet?: string;
+        payload?: {
+          headers?: Array<{ name: string; value: string }>;
+          parts?: Array<unknown>;
+        };
+      }>;
     };
+    const threadMessages = data.messages ?? [];
+    const latestMessage = threadMessages.at(-1);
+    const labelIds = Array.from(
+      new Set(threadMessages.flatMap((item) => item.labelIds ?? [])),
+    );
     const headers = new Map(
-      (data.payload?.headers ?? []).map((header) => [
+      (latestMessage?.payload?.headers ?? []).map((header) => [
         header.name.toLowerCase(),
         header.value,
       ]),
@@ -866,14 +881,14 @@ async function getRecentGmailMessages(
       fromEmail: extractEmailAddress(from),
       account,
       subject: headers.get("subject") || "(sin asunto)",
-      preview: data.snippet ?? "",
+      preview: latestMessage?.snippet ?? "",
       time: date ? formatMessageDate(date) : "",
-      tag: data.labelIds?.includes("IMPORTANT") ? "Importante" : "Inbox",
-      state: data.labelIds?.includes("UNREAD") ? "No leido" : "Leido",
-      unread: data.labelIds?.includes("UNREAD") ?? false,
-      attachment: data.labelIds?.includes("SENT") ? false : false,
+      tag: labelIds.includes("IMPORTANT") ? "Importante" : "Inbox",
+      state: labelIds.includes("UNREAD") ? "No leido" : "Leido",
+      unread: labelIds.includes("UNREAD"),
+      attachment: false,
       to: headers.get("to"),
-      labelIds: data.labelIds ?? [],
+      labelIds,
     };
   });
 
@@ -881,13 +896,13 @@ async function getRecentGmailMessages(
 }
 
 function getMailboxListOptions(mailbox: GmailMailbox, category = "all") {
-  const categoryQuery =
+  const categoryLabel =
     category !== "all" && ["primary", "promotions", "social", "updates", "forums"].includes(category)
-      ? `category:${category}`
-      : "";
+      ? `CATEGORY_${category.toUpperCase()}`
+      : undefined;
 
   if (mailbox === "unread") {
-    return { query: ["is:unread", categoryQuery].filter(Boolean).join(" ") };
+    return { labelIds: ["UNREAD", ...(categoryLabel ? [categoryLabel] : [])] };
   }
 
   if (mailbox === "important") {
@@ -926,16 +941,16 @@ function getMailboxListOptions(mailbox: GmailMailbox, category = "all") {
     return { query: "newer_than:30d" };
   }
 
-  if (categoryQuery) {
-    return { query: `in:inbox ${categoryQuery}` };
+  if (categoryLabel) {
+    return { labelIds: ["INBOX", categoryLabel] };
   }
 
-  return { labelId: "INBOX" };
+  return { labelIds: ["INBOX"] };
 }
 
-async function listRecentGmailMessageIds(
+async function listRecentGmailThreadIds(
   accessToken: string,
-  options?: { labelId?: string; query?: string },
+  options?: { labelId?: string; labelIds?: string[]; query?: string },
   maxResults = 25,
 ) {
   const params = new URLSearchParams({
@@ -943,7 +958,11 @@ async function listRecentGmailMessageIds(
   });
 
   if (options?.labelId) {
-    params.set("labelIds", options.labelId);
+    params.append("labelIds", options.labelId);
+  }
+
+  for (const labelId of options?.labelIds ?? []) {
+    params.append("labelIds", labelId);
   }
 
   if (options?.query) {
@@ -951,7 +970,7 @@ async function listRecentGmailMessageIds(
   }
 
   const listResponse = await fetch(
-    `https://gmail.googleapis.com/gmail/v1/users/me/messages?${params.toString()}`,
+    `https://gmail.googleapis.com/gmail/v1/users/me/threads?${params.toString()}`,
     {
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -962,14 +981,14 @@ async function listRecentGmailMessageIds(
 
   if (!listResponse.ok) {
     const body = await listResponse.text();
-    throw new Error(`Gmail messages request failed: ${body}`);
+    throw new Error(`Gmail threads request failed: ${body}`);
   }
 
   const list = (await listResponse.json()) as {
-    messages?: Array<{ id: string }>;
+    threads?: Array<{ id: string }>;
   };
 
-  return list.messages ?? [];
+  return list.threads ?? [];
 }
 
 async function getGmailCategoryCounts(accessToken: string) {
@@ -982,7 +1001,10 @@ async function getGmailCategoryCounts(accessToken: string) {
   const estimates = await mapWithConcurrency(categories, 2, async (category) => {
     return [
       category,
-      await countGmailMessageIds(accessToken, `in:inbox category:${category}`),
+      await countGmailThreadIds(accessToken, [
+        "INBOX",
+        `CATEGORY_${category.toUpperCase()}`,
+      ]),
     ] as const;
   });
 
@@ -992,22 +1014,25 @@ async function getGmailCategoryCounts(accessToken: string) {
   >;
 }
 
-async function countGmailMessageIds(accessToken: string, query: string) {
+async function countGmailThreadIds(accessToken: string, labelIds: string[]) {
   let count = 0;
   let pageToken: string | undefined;
 
   do {
     const params = new URLSearchParams({
       maxResults: "500",
-      q: query,
     });
+
+    for (const labelId of labelIds) {
+      params.append("labelIds", labelId);
+    }
 
     if (pageToken) {
       params.set("pageToken", pageToken);
     }
 
     const response = await fetch(
-      `https://gmail.googleapis.com/gmail/v1/users/me/messages?${params.toString()}`,
+      `https://gmail.googleapis.com/gmail/v1/users/me/threads?${params.toString()}`,
       {
         headers: { Authorization: `Bearer ${accessToken}` },
         cache: "no-store",
@@ -1019,10 +1044,10 @@ async function countGmailMessageIds(accessToken: string, query: string) {
     }
 
     const data = (await response.json()) as {
-      messages?: Array<{ id: string }>;
+      threads?: Array<{ id: string }>;
       nextPageToken?: string;
     };
-    count += data.messages?.length ?? 0;
+    count += data.threads?.length ?? 0;
     pageToken = data.nextPageToken;
   } while (pageToken && count < 5000);
 
@@ -1056,6 +1081,8 @@ async function getGmailLabels(
       type: "system" | "user";
       messagesTotal?: number;
       messagesUnread?: number;
+      threadsTotal?: number;
+      threadsUnread?: number;
     }>;
   };
 
@@ -1106,6 +1133,8 @@ async function getGmailLabels(
       type: label.type,
       messagesTotal: detail.messagesTotal,
       unreadTotal: detail.messagesUnread,
+      threadsTotal: detail.threadsTotal,
+      threadsUnread: detail.threadsUnread,
       account,
     };
   });
