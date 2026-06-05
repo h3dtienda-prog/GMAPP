@@ -12,6 +12,9 @@ export async function POST(request: NextRequest) {
   const gmailIds = formData.getAll("gmailId").map(String);
   const labelId = String(formData.get("labelId") ?? "");
   const redirectTo = String(formData.get("redirectTo") ?? "/");
+  const sourceMailbox =
+    new URL(redirectTo, request.nextUrl.origin).searchParams.get("folder") ??
+    "inbox";
 
   if (
     accounts.length === 0 ||
@@ -33,6 +36,7 @@ export async function POST(request: NextRequest) {
         action,
         gmailIds: ids,
         labelId: labelId || undefined,
+        sourceMailbox,
       }),
     ),
   );

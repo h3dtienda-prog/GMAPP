@@ -131,7 +131,7 @@ type CacheEntry<T> = {
 };
 
 const gmailCache = new Map<string, CacheEntry<unknown>>();
-const gmailCacheTtlMs = 20_000;
+const gmailCacheTtlMs = 120_000;
 
 function readGmailCache<T>(key: string) {
   const cached = gmailCache.get(key) as CacheEntry<T> | undefined;
@@ -336,7 +336,7 @@ export async function getGmailDashboardData(
   const labels: GmailDashboardLabel[] = [];
   const connectionErrors: string[] = [];
   const counts = emptyDashboardCounts();
-  const maxMessagesPerAccount = selectedAccount ? 50 : 8;
+  const maxMessagesPerAccount = selectedAccount ? 30 : 3;
 
   if (!loadMessages) {
     return {
@@ -379,24 +379,14 @@ export async function getGmailDashboardData(
         );
       }
 
-      const accountLabels = await getCachedGmailLabels(
-        row.email_address,
-        tokens.access_token,
-        Boolean(selectedAccount),
-      );
+      const accountLabels = selectedAccount
+        ? await getCachedGmailLabels(row.email_address, tokens.access_token, true)
+        : [];
 
       messages.push(...recentMessages);
       labels.push(...accountLabels);
       addLabelCounts(counts, accountLabels);
       if (selectedAccount) {
-        const categoryCounts = await getGmailCategoryCounts(
-          row.email_address,
-          tokens.access_token,
-        );
-        counts.primary = categoryCounts.primary;
-        counts.promotions = categoryCounts.promotions;
-        counts.social = categoryCounts.social;
-        counts.updates = categoryCounts.updates;
         const primaryLabel = accountLabels.find(
           (label) => label.id === "CATEGORY_PERSONAL",
         );
@@ -480,11 +470,13 @@ export async function performGmailMessageAction({
   action,
   gmailId,
   labelId,
+  sourceMailbox,
 }: {
   account: string;
   action: "archive" | "star" | "unstar" | "read" | "unread" | "label";
   gmailId: string;
   labelId?: string;
+  sourceMailbox?: string;
 }) {
   const row = await getGmailConnectionRow(account);
 
@@ -494,7 +486,7 @@ export async function performGmailMessageAction({
 
   const payload = decryptGmailPayload(row.encrypted_payload);
   const tokens = await ensureFreshGmailTokens(payload);
-  const labels = getLabelMutation(action, labelId);
+  const labels = getLabelMutation(action, labelId, sourceMailbox);
   const response = await fetch(
     `https://gmail.googleapis.com/gmail/v1/users/me/threads/${gmailId}/modify`,
     {
@@ -531,11 +523,13 @@ export async function performGmailMessagesAction({
   action,
   gmailIds,
   labelId,
+  sourceMailbox,
 }: {
   account: string;
   action: "archive" | "star" | "unstar" | "read" | "unread" | "label";
   gmailIds: string[];
   labelId?: string;
+  sourceMailbox?: string;
 }) {
   const row = await getGmailConnectionRow(account);
 
@@ -545,7 +539,7 @@ export async function performGmailMessagesAction({
 
   const payload = decryptGmailPayload(row.encrypted_payload);
   const tokens = await ensureFreshGmailTokens(payload);
-  const mutation = getLabelMutation(action, labelId);
+  const mutation = getLabelMutation(action, labelId, sourceMailbox);
   const results = await mapWithConcurrency(gmailIds, 4, async (gmailId) => {
     const response = await fetch(
       `https://gmail.googleapis.com/gmail/v1/users/me/threads/${gmailId}/modify`,
@@ -697,8 +691,17 @@ async function getGmailConnectionRow(account: string) {
 function getLabelMutation(
   action: "archive" | "star" | "unstar" | "read" | "unread" | "label",
   labelId?: string,
+  sourceMailbox?: string,
 ) {
   if (action === "archive") {
+    if (sourceMailbox === "spam") {
+      return { removeLabelIds: ["SPAM"] };
+    }
+
+    if (sourceMailbox === "trash") {
+      return { removeLabelIds: ["TRASH"] };
+    }
+
     return { removeLabelIds: ["INBOX"] };
   }
 
@@ -1078,75 +1081,6 @@ async function listCategoryThreadRefs(
     })
     .slice(0, maxResults)
     .map((message) => ({ id: message.threadId, messageId: message.id }));
-}
-
-async function getGmailCategoryCounts(account: string, accessToken: string) {
-  const cacheKey = `category-counts:${account}`;
-  const cachedCounts = readGmailCache<Record<
-    "primary" | "promotions" | "social" | "updates",
-    number
-  >>(cacheKey);
-
-  if (cachedCounts) {
-    return cachedCounts;
-  }
-
-  const categories: Array<"primary" | "promotions" | "social" | "updates"> = [
-    "primary",
-    "promotions",
-    "social",
-    "updates",
-  ];
-  const estimates = await mapWithConcurrency(categories, 2, async (category) => {
-    return [
-      category,
-      await countUniqueGmailThreads(accessToken, `in:inbox category:${category}`),
-    ] as const;
-  });
-
-  return writeGmailCache(cacheKey, Object.fromEntries(estimates) as Record<
-    "primary" | "promotions" | "social" | "updates",
-    number
-  >);
-}
-
-async function countUniqueGmailThreads(accessToken: string, query: string) {
-  const threadIds = new Set<string>();
-  let pageToken: string | undefined;
-
-  do {
-    const params = new URLSearchParams({
-      maxResults: "500",
-      q: query,
-    });
-
-    if (pageToken) {
-      params.set("pageToken", pageToken);
-    }
-
-    const response = await fetch(
-      `https://gmail.googleapis.com/gmail/v1/users/me/messages?${params.toString()}`,
-      {
-        headers: { Authorization: `Bearer ${accessToken}` },
-        cache: "no-store",
-      },
-    );
-
-    if (!response.ok) {
-      return threadIds.size;
-    }
-
-    const data = (await response.json()) as {
-      messages?: Array<{ id: string; threadId: string }>;
-      nextPageToken?: string;
-    };
-    for (const message of data.messages ?? []) {
-      threadIds.add(message.threadId);
-    }
-    pageToken = data.nextPageToken;
-  } while (pageToken && threadIds.size < 5000);
-
-  return threadIds.size;
 }
 
 async function getGmailLabels(

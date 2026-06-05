@@ -476,12 +476,6 @@ export default async function Home({ searchParams }: HomeProps) {
   );
   const showCategoryTabs = activeFolder === "inbox" && !activeLabel;
   const visibleMessages = queryMatchedMessages;
-  const tabCounts = {
-    primary: counts.primary,
-    promotions: counts.promotions,
-    social: counts.social,
-    updates: counts.updates,
-  };
   const currentHref = buildListHref({
     account: selectedAccount,
     folder: activeFolder,
@@ -869,11 +863,7 @@ export default async function Home({ searchParams }: HomeProps) {
           ) : (
             <GmailInboxList
               accounts={accounts}
-              allCount={
-                activeFolder === "inbox" && !activeLabel
-                  ? tabCounts[activeTab as keyof typeof tabCounts]
-                  : messages.length
-              }
+              allCount={messages.length}
               currentHref={currentHref}
               labels={labels}
               messages={visibleMessages}
