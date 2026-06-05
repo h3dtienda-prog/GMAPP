@@ -27,18 +27,43 @@ export function EmailBodyFrame({ html, title }: { html: string; title: string })
     }
 
     const resize = () => {
-      const height = frame.contentDocument?.documentElement.scrollHeight;
+      const document = frame.contentDocument;
+      const height = Math.max(
+        document?.documentElement.scrollHeight ?? 0,
+        document?.body.scrollHeight ?? 0,
+      );
 
       if (height) {
-        frame.style.height = `${Math.max(height + 8, 180)}px`;
+        frame.style.height = `${Math.max(height + 16, window.innerHeight - 260)}px`;
       }
     };
 
-    frame.addEventListener("load", resize);
-    const timer = window.setTimeout(resize, 500);
+    let observer: ResizeObserver | undefined;
+    const handleLoad = () => {
+      resize();
+
+      const document = frame.contentDocument;
+
+      if (!document) {
+        return;
+      }
+
+      observer = new ResizeObserver(resize);
+      observer.observe(document.documentElement);
+      observer.observe(document.body);
+      document.querySelectorAll("img").forEach((image) => {
+        image.addEventListener("load", resize);
+      });
+    };
+
+    frame.addEventListener("load", handleLoad);
+    window.addEventListener("resize", resize);
+    const timer = window.setTimeout(handleLoad, 300);
 
     return () => {
-      frame.removeEventListener("load", resize);
+      observer?.disconnect();
+      frame.removeEventListener("load", handleLoad);
+      window.removeEventListener("resize", resize);
       window.clearTimeout(timer);
     };
   }, [html]);
@@ -46,9 +71,9 @@ export function EmailBodyFrame({ html, title }: { html: string; title: string })
   return (
     <iframe
       ref={frameRef}
-      className="min-h-48 w-full border-0 bg-white"
+      className="min-h-[calc(100vh-260px)] w-full border-0 bg-white"
       referrerPolicy="no-referrer"
-      sandbox="allow-popups allow-popups-to-escape-sandbox"
+      sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin"
       srcDoc={srcDoc}
       title={title}
     />
