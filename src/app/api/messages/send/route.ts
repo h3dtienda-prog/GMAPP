@@ -6,7 +6,10 @@ export const runtime = "nodejs";
 export async function POST(request: NextRequest) {
   const body = (await request.json()) as {
     account?: string;
+    attachments?: Array<{ content: string; name: string; type: string }>;
+    bcc?: string;
     body?: string;
+    cc?: string;
     subject?: string;
     to?: string;
   };
@@ -21,7 +24,10 @@ export async function POST(request: NextRequest) {
   try {
     await sendGmailMessage({
       account: body.account,
+      attachments: body.attachments,
+      bcc: body.bcc,
       body: body.body ?? "",
+      cc: body.cc,
       subject: body.subject,
       to: body.to,
     });

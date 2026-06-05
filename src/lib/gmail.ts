@@ -389,7 +389,10 @@ export async function getGmailDashboardData(
       labels.push(...accountLabels);
       addLabelCounts(counts, accountLabels);
       if (selectedAccount) {
-        const categoryCounts = await getGmailCategoryCounts(tokens.access_token);
+        const categoryCounts = await getGmailCategoryCounts(
+          row.email_address,
+          tokens.access_token,
+        );
         counts.primary = categoryCounts.primary;
         counts.promotions = categoryCounts.promotions;
         counts.social = categoryCounts.social;
@@ -568,12 +571,18 @@ export async function performGmailMessagesAction({
 
 export async function sendGmailMessage({
   account,
+  attachments = [],
   body,
+  cc,
+  bcc,
   subject,
   to,
 }: {
   account: string;
+  attachments?: Array<{ content: string; name: string; type: string }>;
   body: string;
+  cc?: string;
+  bcc?: string;
   subject: string;
   to: string;
 }) {
@@ -585,15 +594,38 @@ export async function sendGmailMessage({
 
   const payload = decryptGmailPayload(row.encrypted_payload);
   const tokens = await ensureFreshGmailTokens(payload);
-  const rawMessage = [
+  const boundary = `mails-app-${randomBytes(12).toString("hex")}`;
+  const headers = [
     `From: ${account}`,
     `To: ${to}`,
+    ...(cc ? [`Cc: ${cc}`] : []),
+    ...(bcc ? [`Bcc: ${bcc}`] : []),
     `Subject: ${subject}`,
     "MIME-Version: 1.0",
-    'Content-Type: text/plain; charset="UTF-8"',
+    `Content-Type: multipart/mixed; boundary="${boundary}"`,
     "",
-    body,
-  ].join("\r\n");
+  ];
+  const parts = [
+    `--${boundary}`,
+    'Content-Type: text/html; charset="UTF-8"',
+    "Content-Transfer-Encoding: base64",
+    "",
+    Buffer.from(body).toString("base64"),
+  ];
+
+  for (const attachment of attachments) {
+    parts.push(
+      `--${boundary}`,
+      `Content-Type: ${attachment.type || "application/octet-stream"}; name="${attachment.name.replaceAll('"', "")}"`,
+      "Content-Transfer-Encoding: base64",
+      `Content-Disposition: attachment; filename="${attachment.name.replaceAll('"', "")}"`,
+      "",
+      attachment.content,
+    );
+  }
+
+  parts.push(`--${boundary}--`);
+  const rawMessage = [...headers, ...parts].join("\r\n");
   const raw = Buffer.from(rawMessage)
     .toString("base64url");
   const response = await fetch(
@@ -819,17 +851,26 @@ async function getRecentGmailMessages(
     return cachedMessages;
   }
 
-  const threadIds = await listRecentGmailThreadIds(
-    accessToken,
-    selectedLabelId
-      ? { labelId: selectedLabelId }
-      : getMailboxListOptions(mailbox, category),
-    maxResults,
-  );
+  const categoryQuery =
+    mailbox === "inbox" && !selectedLabelId && category !== "all"
+      ? `in:inbox category:${category}`
+      : undefined;
+  const threadIds: Array<{ id: string; messageId?: string }> = categoryQuery
+    ? await listCategoryThreadRefs(accessToken, categoryQuery, maxResults)
+    : (await listRecentGmailThreadIds(
+        accessToken,
+        selectedLabelId
+          ? { labelId: selectedLabelId }
+          : getMailboxListOptions(mailbox, category),
+        maxResults,
+      )).map((thread) => ({ id: thread.id }));
 
   const messages = await mapWithConcurrency(threadIds, 5, async (thread) => {
+    const resource = thread.messageId
+      ? `messages/${thread.messageId}`
+      : `threads/${thread.id}`;
     const response = await fetch(
-      `https://gmail.googleapis.com/gmail/v1/users/me/threads/${thread.id}?` +
+      `https://gmail.googleapis.com/gmail/v1/users/me/${resource}?` +
         new URLSearchParams({
           format: "metadata",
           metadataHeaders: "From",
@@ -850,6 +891,13 @@ async function getRecentGmailMessages(
 
     const data = (await response.json()) as {
       id: string;
+      threadId?: string;
+      labelIds?: string[];
+      snippet?: string;
+      payload?: {
+        headers?: Array<{ name: string; value: string }>;
+        parts?: Array<unknown>;
+      };
       messages?: Array<{
         id: string;
         labelIds?: string[];
@@ -860,7 +908,7 @@ async function getRecentGmailMessages(
         };
       }>;
     };
-    const threadMessages = data.messages ?? [];
+    const threadMessages = data.messages ?? (data.threadId ? [data] : []);
     const latestMessage = threadMessages.at(-1);
     const labelIds = Array.from(
       new Set(threadMessages.flatMap((item) => item.labelIds ?? [])),
@@ -875,8 +923,8 @@ async function getRecentGmailMessages(
     const from = headers.get("from") ?? "Remitente";
 
     return {
-      id: `${account}:${data.id}`,
-      gmailId: data.id,
+      id: `${account}:${data.threadId ?? data.id}`,
+      gmailId: data.threadId ?? data.id,
       sender: cleanEmailName(from),
       fromEmail: extractEmailAddress(from),
       account,
@@ -991,7 +1039,53 @@ async function listRecentGmailThreadIds(
   return list.threads ?? [];
 }
 
-async function getGmailCategoryCounts(accessToken: string) {
+async function listCategoryThreadRefs(
+  accessToken: string,
+  query: string,
+  maxResults: number,
+) {
+  const params = new URLSearchParams({
+    maxResults: String(Math.min(maxResults * 4, 100)),
+    q: query,
+  });
+  const response = await fetch(
+    `https://gmail.googleapis.com/gmail/v1/users/me/messages?${params.toString()}`,
+    {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      cache: "no-store",
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(`Gmail category request failed: ${await response.text()}`);
+  }
+
+  const data = (await response.json()) as {
+    messages?: Array<{ id: string; threadId: string }>;
+  };
+  const seen = new Set<string>();
+
+  return (data.messages ?? [])
+    .filter((message) => {
+      if (seen.has(message.threadId)) return false;
+      seen.add(message.threadId);
+      return true;
+    })
+    .slice(0, maxResults)
+    .map((message) => ({ id: message.threadId, messageId: message.id }));
+}
+
+async function getGmailCategoryCounts(account: string, accessToken: string) {
+  const cacheKey = `category-counts:${account}`;
+  const cachedCounts = readGmailCache<Record<
+    "primary" | "promotions" | "social" | "updates",
+    number
+  >>(cacheKey);
+
+  if (cachedCounts) {
+    return cachedCounts;
+  }
+
   const categories: Array<"primary" | "promotions" | "social" | "updates"> = [
     "primary",
     "promotions",
@@ -1001,38 +1095,32 @@ async function getGmailCategoryCounts(accessToken: string) {
   const estimates = await mapWithConcurrency(categories, 2, async (category) => {
     return [
       category,
-      await countGmailThreadIds(accessToken, [
-        "INBOX",
-        `CATEGORY_${category.toUpperCase()}`,
-      ]),
+      await countUniqueGmailThreads(accessToken, `in:inbox category:${category}`),
     ] as const;
   });
 
-  return Object.fromEntries(estimates) as Record<
+  return writeGmailCache(cacheKey, Object.fromEntries(estimates) as Record<
     "primary" | "promotions" | "social" | "updates",
     number
-  >;
+  >);
 }
 
-async function countGmailThreadIds(accessToken: string, labelIds: string[]) {
-  let count = 0;
+async function countUniqueGmailThreads(accessToken: string, query: string) {
+  const threadIds = new Set<string>();
   let pageToken: string | undefined;
 
   do {
     const params = new URLSearchParams({
       maxResults: "500",
+      q: query,
     });
-
-    for (const labelId of labelIds) {
-      params.append("labelIds", labelId);
-    }
 
     if (pageToken) {
       params.set("pageToken", pageToken);
     }
 
     const response = await fetch(
-      `https://gmail.googleapis.com/gmail/v1/users/me/threads?${params.toString()}`,
+      `https://gmail.googleapis.com/gmail/v1/users/me/messages?${params.toString()}`,
       {
         headers: { Authorization: `Bearer ${accessToken}` },
         cache: "no-store",
@@ -1040,18 +1128,20 @@ async function countGmailThreadIds(accessToken: string, labelIds: string[]) {
     );
 
     if (!response.ok) {
-      return count;
+      return threadIds.size;
     }
 
     const data = (await response.json()) as {
-      threads?: Array<{ id: string }>;
+      messages?: Array<{ id: string; threadId: string }>;
       nextPageToken?: string;
     };
-    count += data.threads?.length ?? 0;
+    for (const message of data.messages ?? []) {
+      threadIds.add(message.threadId);
+    }
     pageToken = data.nextPageToken;
-  } while (pageToken && count < 5000);
+  } while (pageToken && threadIds.size < 5000);
 
-  return count;
+  return threadIds.size;
 }
 
 async function getGmailLabels(
